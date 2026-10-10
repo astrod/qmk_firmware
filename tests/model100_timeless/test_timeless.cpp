@@ -176,25 +176,35 @@ TEST_F(Model100Timeless, MatrixSidesAndThumbExceptions) {
     }
 }
 
-TEST_F(Model100Timeless, RightThumbAppliesAltImmediately) {
+TEST_F(Model100Timeless, RightSymbolThumbTypesLeftBracketThenReturnsToBaseC) {
     TestDriver driver; capture(driver);
-    auto alt = KeymapKey(0, 7, 6, KC_LALT);
-    set_keymap({alt});
-    press(alt, 1);
-    EXPECT_EQ(previous.mods, MOD_BIT(KC_LALT));
-    EXPECT_EQ(get_speculative_mods(), 0);
-    release(alt);
-    EXPECT_TRUE(presses.empty());
+    auto osl = KeymapKey(DEF, 7, 6, OSL(SYM));
+    auto bracket = KeymapKey(SYM, 4, 3, KC_LBRC), c = KeymapKey(DEF, 4, 3, KC_C);
+    set_keymap({osl, bracket, c});
+    tap_key(osl, 40);
+    EXPECT_EQ(timeless_active_indicators(), TIMELESS_SYMBOL);
+    EXPECT_EQ(get_mods(), 0);
+    tap_key(bracket, 40);
+    EXPECT_EQ(timeless_active_indicators(), 0);
+    tap_key(c, 40);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_LBRC, 0}, {KC_C, 0}}));
     expect_clear();
 }
 
-TEST_F(Model100Timeless, RightThumbAllowsSameHandAltShortcut) {
+TEST_F(Model100Timeless, AlternatingSymbolThumbsDoNotLeaveTheLayerActive) {
     TestDriver driver; capture(driver);
-    auto alt = KeymapKey(0, 7, 6, KC_LALT);
-    auto u = KeymapKey(0, 4, 5, KC_U);
-    set_keymap({alt, u});
-    press(alt); tap_key(u); release(alt);
-    EXPECT_EQ(presses, (std::vector<Press>{{KC_U, MOD_BIT(KC_LALT)}}));
+    auto left = KeymapKey(DEF, 0, 2, OSL(SYM)), right = KeymapKey(DEF, 7, 6, OSL(SYM));
+    auto underscore = KeymapKey(SYM, 3, 7, KC_UNDS);
+    set_keymap({left, right, underscore});
+    for (auto key : {&left, &right, &left, &right}) {
+        presses.clear();
+        tap_key(*key, 30);
+        EXPECT_EQ(timeless_active_indicators(), TIMELESS_SYMBOL);
+        tap_key(underscore, 30);
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_MINS, MOD_BIT(KC_LSFT)}}));
+        expect_clear();
+    }
     expect_clear();
 }
 
@@ -260,36 +270,40 @@ TEST_F(Model100Timeless, OneShotSymbolCanBeUsedTwiceQuickly) {
 
 TEST_F(Model100Timeless, HeldSymbolAllowsSeveralSymbolsAndClearsOnRelease) {
     TestDriver driver; capture(driver);
-    auto osl = KeymapKey(0, 0, 2, OSL(3));
     auto left = KeymapKey(3, 4, 3, KC_LBRC), right = KeymapKey(3, 3, 3, KC_RBRC);
     auto backslash = KeymapKey(3, 1, 5, KC_BSLS);
     auto c = KeymapKey(0, 4, 3, KC_C);
-    set_keymap({osl, left, right, backslash, c});
-    press(osl, 300);
-    EXPECT_EQ(timeless_active_indicators(), TIMELESS_SYMBOL);
-    tap_key(left); tap_key(right); tap_key(backslash);
-    EXPECT_TRUE(layer_state_is(3));
-    release(osl);
-    EXPECT_FALSE(layer_state_is(3));
-    EXPECT_EQ(timeless_active_indicators(), 0);
-    tap_key(c);
-    EXPECT_EQ(presses, (std::vector<Press>{{KC_LBRC, 0}, {KC_RBRC, 0}, {KC_BSLS, 0}, {KC_C, 0}}));
-    expect_clear();
+    for (bool right_thumb : {false, true}) {
+        auto osl = KeymapKey(DEF, right_thumb ? 7 : 0, right_thumb ? 6 : 2, OSL(SYM));
+        set_keymap({osl, left, right, backslash, c}); presses.clear();
+        press(osl, 300);
+        EXPECT_EQ(timeless_active_indicators(), TIMELESS_SYMBOL);
+        tap_key(left); tap_key(right); tap_key(backslash);
+        EXPECT_TRUE(layer_state_is(3));
+        release(osl);
+        EXPECT_FALSE(layer_state_is(3));
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        tap_key(c);
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_LBRC, 0}, {KC_RBRC, 0}, {KC_BSLS, 0}, {KC_C, 0}}));
+        expect_clear(); idle_for(600);
+    }
 }
 
 TEST_F(Model100Timeless, OneShotArrowTypesTwoCharactersThenReturnsToHomeRowMod) {
     TestDriver driver; capture(driver);
-    auto osl = KeymapKey(0, 0, 2, OSL(3));
     auto arrow = KeymapKey(3, 2, 6, SYM_ARROW), l = KeymapKey(0, 2, 6, HRM_L);
-    set_keymap({osl, arrow, l});
-    tap_key(osl, 40);
-    EXPECT_EQ(timeless_active_indicators(), TIMELESS_SYMBOL);
-    tap_key(arrow, 40);
-    EXPECT_FALSE(layer_state_is(3));
-    EXPECT_EQ(timeless_active_indicators(), 0);
-    tap_key(l, 40);
-    EXPECT_EQ(presses, (std::vector<Press>{{KC_MINS, 0}, {KC_DOT, MOD_BIT(KC_LSFT)}, {KC_L, 0}}));
-    expect_clear();
+    for (bool right_thumb : {false, true}) {
+        auto osl = KeymapKey(DEF, right_thumb ? 7 : 0, right_thumb ? 6 : 2, OSL(SYM));
+        set_keymap({osl, arrow, l}); presses.clear();
+        tap_key(osl, 40);
+        EXPECT_EQ(timeless_active_indicators(), TIMELESS_SYMBOL);
+        tap_key(arrow, 40);
+        EXPECT_FALSE(layer_state_is(3));
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        tap_key(l, 40);
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_MINS, 0}, {KC_DOT, MOD_BIT(KC_LSFT)}, {KC_L, 0}}));
+        expect_clear(); idle_for(600);
+    }
 }
 
 TEST_F(Model100Timeless, ArrowConsumesOneShotShiftWithoutChangingLiteralText) {
@@ -307,11 +321,11 @@ TEST_F(Model100Timeless, ArrowConsumesOneShotShiftWithoutChangingLiteralText) {
 
 TEST_F(Model100Timeless, ArrowRestoresHeldAltForTheNextShortcut) {
     TestDriver driver; capture(driver);
-    auto alt = KeymapKey(0, 7, 6, KC_LALT), osl = KeymapKey(0, 0, 2, OSL(3));
+    auto alt = KeymapKey(DEF, 5, 2, HRM_S), osl = KeymapKey(0, 0, 2, OSL(3));
     auto arrow = KeymapKey(3, 2, 6, SYM_ARROW), u = KeymapKey(0, 4, 5, KC_U);
-    auto transparent_alt = KeymapKey(3, 7, 6, KC_TRNS);
+    auto transparent_alt = KeymapKey(SYM, 5, 2, KC_TRNS);
     set_keymap({alt, osl, arrow, u, transparent_alt});
-    press(alt); tap_key(osl, 40); tap_key(arrow, 40);
+    press(alt, 300); tap_key(osl, 40); tap_key(arrow, 40);
     EXPECT_EQ(get_mods(), MOD_BIT(KC_LALT));
     EXPECT_FALSE(layer_state_is(3));
     tap_key(u); release(alt);

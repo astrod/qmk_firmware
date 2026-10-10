@@ -25,7 +25,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   KC_PGDN, KC_Z   , KC_X   , KC_C   , KC_V   , KC_B   , KC_ESC ,    _______, KC_N   , KC_M   , KC_COMM, KC_DOT , KC_SLSH, KC_MINS,
                                          OSM(MOD_LSFT),                           OSM(MOD_LSFT),
                                             KC_BSPC,                           KC_SPC ,
-                                               OSL(SYM),                    KC_LALT,
+                                               OSL(SYM),                    OSL(SYM),
                                                   KC_LCTL,               KC_LCTL,
                                       MO(FUN),                                        MO(FUN)
   ),
