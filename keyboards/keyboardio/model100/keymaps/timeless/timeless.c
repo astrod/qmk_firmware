@@ -67,6 +67,9 @@ uint8_t timeless_active_indicators(void) {
     if (layer_state_is(NUM)) {
         flags |= TIMELESS_NUM;
     }
+    if (is_caps_word_on()) {
+        flags |= TIMELESS_CAPS_WORD;
+    }
     return flags;
 }
 
@@ -75,6 +78,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return true;
     }
     if (record->event.pressed) {
+        // This macro returns before QMK's Caps Word handler. End the word
+        // here so the arrow is a delimiter and no weak Shift is restored.
+        caps_word_off();
         // Type a literal arrow even with a held or one-shot modifier. Restore
         // held modifiers, but consume one-shot modifiers with this macro.
         const uint8_t mods = get_mods();

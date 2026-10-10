@@ -5,9 +5,10 @@
 #include "layers.h"
 
 enum timeless_indicator_flags {
-    TIMELESS_SYMBOL = 1 << 0,
-    TIMELESS_SHIFT  = 1 << 1,
-    TIMELESS_NUM    = 1 << 2,
+    TIMELESS_SYMBOL    = 1 << 0,
+    TIMELESS_SHIFT     = 1 << 1,
+    TIMELESS_NUM       = 1 << 2,
+    TIMELESS_CAPS_WORD = 1 << 3,
 };
 
 uint8_t timeless_active_indicators(void);

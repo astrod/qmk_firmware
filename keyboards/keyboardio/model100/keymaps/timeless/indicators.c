@@ -2,16 +2,17 @@
 #include "timeless.h"
 
 #ifdef RGB_MATRIX_ENABLE
-// Reserve these five keys for state feedback instead of the RGB animation.
+// Reserve these six keys for state feedback instead of the RGB animation.
 // Resolve LED indices through keyboard.json's matrix map, not physical order.
 static const struct {
     uint8_t row, col, flag, hue;
 } indicators[] = {
-    {2, 0, TIMELESS_SYMBOL, 170}, // Left thumb Sym: blue.
-    {6, 7, TIMELESS_SYMBOL, 170}, // Right thumb Sym: blue.
-    {0, 0, TIMELESS_SHIFT,   43}, // Left outer thumb Shift: yellow.
-    {4, 7, TIMELESS_SHIFT,   43}, // Right outer thumb Shift: yellow.
-    {4, 0, TIMELESS_NUM,     85}, // Top-right Num: green.
+    {2, 0, TIMELESS_SYMBOL,   170}, // Left thumb Sym: blue.
+    {6, 7, TIMELESS_SYMBOL,   170}, // Right thumb Sym: blue.
+    {0, 0, TIMELESS_SHIFT,     43}, // Left outer thumb Shift: yellow.
+    {4, 7, TIMELESS_SHIFT,     43}, // Right outer thumb Shift: yellow.
+    {4, 0, TIMELESS_NUM,       85}, // Top-right Num: green.
+    {6, 6, TIMELESS_CAPS_WORD, 21}, // Below right Enter: orange.
 };
 
 bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {

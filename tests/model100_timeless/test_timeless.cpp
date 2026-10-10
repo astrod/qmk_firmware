@@ -26,6 +26,7 @@ protected:
                 }
                 previous = report;
             });
+        caps_word_off();
         idle_for(600); // Clear QMK's previous typing interval between cases.
     }
 
@@ -391,4 +392,133 @@ TEST_F(Model100Timeless, SymbolAndShiftIndicatorsClearTogetherAfterArrowMacro) {
     EXPECT_EQ(timeless_active_indicators(), 0);
     EXPECT_EQ(presses, (std::vector<Press>{{KC_MINS, 0}, {KC_DOT, MOD_BIT(KC_LSFT)}}));
     expect_clear();
+}
+
+TEST_F(Model100Timeless, CapsWordToggleDoesNotSendCapsLock) {
+    TestDriver driver; capture(driver);
+    auto cw = KeymapKey(DEF, 6, 6, CW_TOGG);
+    set_keymap({cw});
+    tap_key(cw);
+    EXPECT_TRUE(is_caps_word_on());
+    EXPECT_EQ(timeless_active_indicators(), TIMELESS_CAPS_WORD);
+    tap_key(cw);
+    EXPECT_FALSE(is_caps_word_on());
+    EXPECT_EQ(timeless_active_indicators(), 0);
+    EXPECT_TRUE(presses.empty()); expect_clear();
+}
+
+TEST_F(Model100Timeless, CapsWordCapitalizesHomeRowTapsAndEndsAtSpaceEnterOrTab) {
+    TestDriver driver; capture(driver);
+    auto cw = KeymapKey(DEF, 6, 6, CW_TOGG), u = KeymapKey(DEF, 4, 5, KC_U);
+    for (uint16_t code : {KC_SPC, KC_ENT, KC_TAB}) {
+        auto boundary = KeymapKey(DEF, 7, 5, code);
+        set_keymap({cw, u, boundary}); presses.clear();
+        tap_key(cw);
+        for (auto h : home) {
+            if (h.tap == KC_SCLN) continue; // Punctuation ends the word.
+            auto key = KeymapKey(DEF, h.col, h.row, h.code);
+            add_key(key);
+            tap_key(key, 40);
+            EXPECT_TRUE(is_caps_word_on());
+            EXPECT_EQ(presses.back(), (Press{h.tap, MOD_BIT(KC_LSFT)}));
+            idle_for(300); // Also exercise taps outside Flow Tap's window.
+        }
+        tap_key(boundary);
+        EXPECT_FALSE(is_caps_word_on());
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        EXPECT_EQ(presses.back(), (Press{static_cast<uint8_t>(code), 0}));
+        tap_key(u);
+        EXPECT_EQ(presses.back(), (Press{KC_U, 0}));
+        expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, CapsWordKeepsUnderscoresDigitsAndBackspaceWithEitherSymbolThumb) {
+    TestDriver driver; capture(driver);
+    auto cw = KeymapKey(DEF, 6, 6, CW_TOGG), g = KeymapKey(DEF, 2, 2, KC_G);
+    auto underscore = KeymapKey(SYM, 3, 7, KC_UNDS), minus = KeymapKey(DEF, 0, 7, KC_MINS);
+    auto digit = KeymapKey(DEF, 6, 0, KC_1), backspace = KeymapKey(DEF, 0, 1, KC_BSPC);
+    auto space = KeymapKey(DEF, 7, 5, KC_SPC);
+    for (bool right_thumb : {false, true}) {
+        auto osl = KeymapKey(DEF, right_thumb ? 7 : 0, right_thumb ? 6 : 2, OSL(SYM));
+        set_keymap({cw, g, underscore, minus, digit, backspace, space, osl}); presses.clear();
+        tap_key(cw); tap_key(g); tap_key(osl, 40);
+        EXPECT_EQ(timeless_active_indicators(), TIMELESS_CAPS_WORD | TIMELESS_SYMBOL);
+        tap_key(underscore);
+        EXPECT_EQ(timeless_active_indicators(), TIMELESS_CAPS_WORD);
+        tap_key(g); tap_key(minus); tap_key(digit); tap_key(backspace);
+        EXPECT_TRUE(is_caps_word_on());
+        tap_key(space); tap_key(g);
+        EXPECT_EQ(presses, (std::vector<Press>{
+            {KC_G, MOD_BIT(KC_LSFT)}, {KC_MINS, MOD_BIT(KC_LSFT)},
+            {KC_G, MOD_BIT(KC_LSFT)}, {KC_MINS, MOD_BIT(KC_LSFT)},
+            {KC_1, 0}, {KC_BSPC, 0}, {KC_SPC, 0}, {KC_G, 0}}));
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, CapsWordEndsBeforeTheLiteralArrowMacro) {
+    TestDriver driver; capture(driver);
+    auto cw = KeymapKey(DEF, 6, 6, CW_TOGG), a = KeymapKey(DEF, 6, 2, HRM_A);
+    auto osl = KeymapKey(DEF, 7, 6, OSL(SYM)), arrow = KeymapKey(SYM, 2, 6, SYM_ARROW);
+    set_keymap({cw, a, osl, arrow});
+    tap_key(cw); tap_key(a, 40); tap_key(osl, 40);
+    EXPECT_EQ(timeless_active_indicators(), TIMELESS_CAPS_WORD | TIMELESS_SYMBOL);
+    tap_key(arrow, 40);
+    EXPECT_EQ(timeless_active_indicators(), 0);
+    EXPECT_EQ(get_weak_mods(), 0);
+    tap_key(a, 40);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_A, MOD_BIT(KC_LSFT)}, {KC_MINS, 0}, {KC_DOT, MOD_BIT(KC_LSFT)}, {KC_A, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, CapsWordEndsForAHeldHomeRowCommandShortcut) {
+    TestDriver driver; capture(driver);
+    auto cw = KeymapKey(DEF, 6, 6, CW_TOGG), d = KeymapKey(DEF, 4, 2, HRM_D);
+    auto u = KeymapKey(DEF, 4, 5, KC_U);
+    set_keymap({cw, d, u});
+    tap_key(cw); press(d, 300); tap_key(u); release(d);
+    EXPECT_FALSE(is_caps_word_on());
+    EXPECT_EQ(timeless_active_indicators(), 0);
+    tap_key(u);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_U, MOD_BIT(KC_LGUI)}, {KC_U, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, CapsWordIdleTimeoutClearsShiftAndIndicator) {
+    TestDriver driver; capture(driver);
+    auto cw = KeymapKey(DEF, 6, 6, CW_TOGG), a = KeymapKey(DEF, 6, 2, HRM_A);
+    set_keymap({cw, a});
+    tap_key(cw); tap_key(a, 40);
+    idle_for(4000);
+    EXPECT_TRUE(is_caps_word_on());
+    idle_for(1100);
+    EXPECT_FALSE(is_caps_word_on());
+    EXPECT_EQ(timeless_active_indicators(), 0);
+    EXPECT_EQ(get_weak_mods(), 0);
+    tap_key(a, 40);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_A, MOD_BIT(KC_LSFT)}, {KC_A, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, CapsWordKeyWorksThroughEveryOtherLayer) {
+    TestDriver driver; capture(driver);
+    auto cw = KeymapKey(DEF, 6, 6, CW_TOGG);
+    for (uint8_t layer : {NUM, FUN, SYM}) {
+        auto through = KeymapKey(layer, 6, 6, KC_TRNS);
+        set_keymap({cw, through});
+        layer_on(layer);
+        tap_key(cw);
+        EXPECT_TRUE(is_caps_word_on());
+        EXPECT_TRUE(layer_state_is(layer));
+        EXPECT_TRUE(timeless_active_indicators() & TIMELESS_CAPS_WORD);
+        tap_key(cw);
+        EXPECT_FALSE(is_caps_word_on());
+        layer_clear();
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        expect_clear(); idle_for(600);
+    }
+    EXPECT_TRUE(presses.empty());
 }
