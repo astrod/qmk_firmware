@@ -9,6 +9,7 @@ enum timeless_indicator_flags {
     TIMELESS_SHIFT     = 1 << 1,
     TIMELESS_NUM       = 1 << 2,
     TIMELESS_CAPS_WORD = 1 << 3,
+    TIMELESS_LAYER_LOCK = 1 << 4,
 };
 
 uint8_t timeless_active_indicators(void);

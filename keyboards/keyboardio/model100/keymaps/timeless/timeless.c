@@ -70,10 +70,19 @@ uint8_t timeless_active_indicators(void) {
     if (is_caps_word_on()) {
         flags |= TIMELESS_CAPS_WORD;
     }
+    if (is_layer_locked(FUN) || is_layer_locked(SYM)) {
+        flags |= TIMELESS_LAYER_LOCK;
+    }
     return flags;
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (keycode == QK_LAYER_LOCK) {
+        // Only lock Fn and symbols. Num already has a toggle; the base layer
+        // should ignore this key. Let native Layer Lock handle both edges.
+        const uint8_t layer = get_highest_layer(layer_state);
+        return layer == FUN || layer == SYM;
+    }
     if (keycode != SYM_ARROW) {
         return true;
     }
