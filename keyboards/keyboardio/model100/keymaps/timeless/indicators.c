@@ -24,8 +24,9 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
             continue;
         }
         // Follow RGB brightness. Global RGB off/suspend also disables indicators.
-        const hsv_t hsv = {.h = indicators[i].hue, .s = 255,
-                           .v = (active & indicators[i].flag) ? rgb_matrix_get_val() : 0};
+        const bool thumb_lock = indicators[i].flag == TIMELESS_SHIFT && (active & TIMELESS_LAYER_LOCK);
+        const hsv_t hsv = {.h = thumb_lock ? 191 : indicators[i].hue, .s = 255,
+                           .v = (thumb_lock || (active & indicators[i].flag)) ? rgb_matrix_get_val() : 0};
         const rgb_t rgb = hsv_to_rgb(hsv);
         rgb_matrix_set_color(led, rgb.r, rgb.g, rgb.b);
     }

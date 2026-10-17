@@ -719,3 +719,235 @@ TEST_F(Model100Timeless, LockedFnKeepsVimArrowsPagesPasteAndEnterUntilUnlocked) 
     EXPECT_EQ(timeless_active_indicators(), 0);
     expect_clear();
 }
+
+TEST_F(Model100Timeless, EitherShiftThumbLocksAndUnlocksFnWithoutSendingShift) {
+    TestDriver driver; capture(driver);
+    for (bool right : {false, true}) {
+        auto fn = KeymapKey(DEF, 1, 3, MO(FUN));
+        auto shift = KeymapKey(DEF, right ? 7 : 0, right ? 4 : 0, OSM(MOD_LSFT));
+        auto lock = KeymapKey(FUN, right ? 7 : 0, right ? 4 : 0, QK_LLCK);
+        auto arrow = KeymapKey(FUN, 4, 6, KC_DOWN), letter = KeymapKey(DEF, 4, 6, HRM_J);
+        set_keymap({fn, shift, lock, arrow, letter}); presses.clear();
+        press(fn); tap_key(lock); release(fn);
+        EXPECT_TRUE(is_layer_locked(FUN));
+        tap_key(arrow); tap_key(lock);
+        EXPECT_FALSE(is_layer_locked(FUN));
+        EXPECT_EQ(get_oneshot_mods(), 0);
+        tap_key(letter);
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_DOWN, 0}, {KC_J, 0}}));
+        // The same physical key is still a one-shot Shift on the base layer.
+        tap_key(shift); tap_key(letter);
+        EXPECT_EQ(presses.back(), (Press{KC_J, MOD_BIT(KC_LSFT)}));
+        EXPECT_EQ(get_oneshot_mods(), 0);
+        expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, EitherShiftThumbLocksOneShotSymbolsAndUnlocksCleanly) {
+    TestDriver driver; capture(driver);
+    for (bool right : {false, true}) {
+        auto osl = KeymapKey(DEF, 0, 2, OSL(SYM));
+        auto shift = KeymapKey(DEF, right ? 7 : 0, right ? 4 : 0, OSM(MOD_LSFT));
+        auto lock = KeymapKey(SYM, right ? 7 : 0, right ? 4 : 0, QK_LLCK);
+        auto symbol = KeymapKey(SYM, 3, 7, KC_UNDS);
+        set_keymap({osl, shift, lock, symbol}); presses.clear();
+        tap_key(osl, 40); tap_key(lock); tap_key(symbol); tap_key(symbol);
+        EXPECT_TRUE(is_layer_locked(SYM));
+        EXPECT_EQ(get_oneshot_layer_state(), 0);
+        tap_key(lock);
+        EXPECT_FALSE(layer_state_is(SYM));
+        EXPECT_EQ(get_oneshot_mods(), 0);
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_MINS, MOD_BIT(KC_LSFT)}, {KC_MINS, MOD_BIT(KC_LSFT)}}));
+        expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, LockedFnLettersExitAndSendTheFirstLetterOnce) {
+    TestDriver driver; capture(driver);
+    const HomeKey letters[] = {
+        {6, 1, KC_Q, KC_Q, 0}, {5, 1, KC_W, KC_W, 0}, {4, 1, KC_E, KC_E, 0},
+        {3, 1, KC_R, KC_R, 0}, {2, 1, KC_T, KC_T, 0}, {5, 5, KC_Y, KC_Y, 0}, {2, 3, KC_B, KC_B, 0},
+    };
+    for (auto k : letters) {
+        auto base = KeymapKey(DEF, k.col, k.row, k.code), through = KeymapKey(FUN, k.col, k.row, KC_TRNS);
+        set_keymap({base, through}); presses.clear(); layer_lock_on(FUN);
+        tap_key(base);
+        EXPECT_FALSE(layer_state_is(FUN)); EXPECT_FALSE(is_layer_locked(FUN));
+        EXPECT_EQ(presses, (std::vector<Press>{{k.tap, 0}}));
+        expect_clear();
+    }
+}
+
+TEST_F(Model100Timeless, AllTenNumberKeysExitLockedFnAndTypeDigits) {
+    TestDriver driver; capture(driver);
+    for (uint8_t i = 0; i < 10; ++i) {
+        const uint8_t row = i < 5 ? 0 : 4, col = i < 5 ? 6 - i : 10 - i;
+        auto number = KeymapKey(DEF, col, row, KC_1 + i), fkey = KeymapKey(FUN, col, row, KC_F1 + i);
+        set_keymap({number, fkey}); presses.clear(); layer_lock_on(FUN);
+        press(fkey, 400); release(fkey);
+        EXPECT_FALSE(layer_state_is(FUN));
+        EXPECT_EQ(presses, (std::vector<Press>{{static_cast<uint8_t>(KC_1 + i), 0}}));
+        expect_clear();
+    }
+}
+
+TEST_F(Model100Timeless, HeldPalmKeepsFunctionKeysEvenAfterLocking) {
+    TestDriver driver; capture(driver);
+    for (bool right : {false, true}) {
+        auto fn = KeymapKey(DEF, right ? 6 : 1, right ? 7 : 3, MO(FUN));
+        auto lock = KeymapKey(FUN, 0, 0, QK_LLCK), shift = KeymapKey(DEF, 0, 0, OSM(MOD_LSFT));
+        auto number = KeymapKey(DEF, 6, 0, KC_1), fkey = KeymapKey(FUN, 6, 0, KC_F1);
+        set_keymap({fn, lock, shift, number, fkey}); presses.clear();
+        press(fn); tap_key(lock); tap_key(fkey);
+        EXPECT_TRUE(is_layer_locked(FUN));
+        release(fn); tap_key(fkey);
+        EXPECT_FALSE(is_layer_locked(FUN));
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_F1, 0}, {KC_1, 0}}));
+        expect_clear();
+    }
+}
+
+TEST_F(Model100Timeless, LockedFnDelimitersAndPunctuationExitUsingBaseBindings) {
+    TestDriver driver; capture(driver);
+    struct Exit { uint8_t col, row; uint16_t base, fn; };
+    const Exit keys[] = {
+        {7, 5, KC_SPC, KC_ENT}, {6, 5, KC_ENT, KC_ENT}, {1, 1, KC_TAB, KC_TRNS},
+        {1, 2, KC_ESC, KC_TRNS}, {3, 7, KC_COMM, KC_TRNS}, {2, 7, KC_DOT, KC_TRNS},
+        {7, 1, KC_GRV, KC_TAB}, {0, 6, KC_QUOT, KC_TRNS},
+    };
+    for (auto k : keys) {
+        auto base = KeymapKey(DEF, k.col, k.row, k.base), fn = KeymapKey(FUN, k.col, k.row, k.fn);
+        set_keymap({base, fn}); presses.clear(); layer_lock_on(FUN);
+        tap_key(fn);
+        EXPECT_FALSE(is_layer_locked(FUN));
+        EXPECT_EQ(presses, (std::vector<Press>{{static_cast<uint8_t>(k.base), 0}}));
+        expect_clear();
+    }
+}
+
+TEST_F(Model100Timeless, FnSpaceStillMeansEnterWhilePalmIsHeld) {
+    TestDriver driver; capture(driver);
+    auto fn = KeymapKey(DEF, 1, 3, MO(FUN));
+    auto space = KeymapKey(DEF, 7, 5, KC_SPC), enter = KeymapKey(FUN, 7, 5, KC_ENT);
+    set_keymap({fn, space, enter});
+    press(fn); layer_lock_on(FUN); tap_key(enter);
+    EXPECT_TRUE(is_layer_locked(FUN));
+    release(fn); tap_key(enter);
+    EXPECT_FALSE(is_layer_locked(FUN));
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_ENT, 0}, {KC_SPC, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, HeldArrowAndModifierReleaseCorrectlyAfterAutomaticExit) {
+    TestDriver driver; capture(driver);
+    auto shift = KeymapKey(FUN, 3, 2, KC_LSFT), f = KeymapKey(DEF, 3, 2, HRM_F);
+    auto arrow = KeymapKey(FUN, 4, 6, KC_DOWN), j = KeymapKey(DEF, 4, 6, HRM_J);
+    auto q = KeymapKey(DEF, 6, 1, KC_Q), through = KeymapKey(FUN, 6, 1, KC_TRNS);
+    set_keymap({shift, f, arrow, j, q, through}); layer_lock_on(FUN);
+    press(shift); press(arrow, 400);
+    EXPECT_TRUE(is_layer_locked(FUN));
+    tap_key(q); EXPECT_FALSE(is_layer_locked(FUN));
+    release(arrow); release(shift);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_DOWN, MOD_BIT(KC_LSFT)}, {KC_Q, MOD_BIT(KC_LSFT)}}));
+    expect_clear();
+    tap_key(j);
+    EXPECT_EQ(presses.back(), (Press{KC_J, 0}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, ExitIntoHomeRowModKeepsNativeTapAndHoldBehavior) {
+    TestDriver driver; capture(driver);
+    auto semi = KeymapKey(DEF, 1, 6, HRM_SCLN), through = KeymapKey(FUN, 1, 6, KC_TRNS);
+    set_keymap({semi, through}); layer_lock_on(FUN);
+    tap_key(semi, 40);
+    EXPECT_FALSE(is_layer_locked(FUN));
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_SCLN, 0}}));
+    expect_clear(); idle_for(600);
+    layer_lock_on(FUN); press(semi, 300);
+    EXPECT_FALSE(is_layer_locked(FUN));
+    EXPECT_EQ(get_mods(), MOD_BIT(KC_RCTL));
+    release(semi); expect_clear();
+}
+
+TEST_F(Model100Timeless, LockedSymbolsKeepSymbolsAndBackspaceUntilAnExitKey) {
+    TestDriver driver; capture(driver);
+    auto symbol = KeymapKey(SYM, 4, 3, KC_LBRC), base_c = KeymapKey(DEF, 4, 3, KC_C);
+    auto bs = KeymapKey(DEF, 0, 1, KC_BSPC), bs_sym = KeymapKey(SYM, 0, 1, KC_TRNS);
+    auto space = KeymapKey(DEF, 7, 5, KC_SPC), space_sym = KeymapKey(SYM, 7, 5, KC_TRNS);
+    set_keymap({symbol, base_c, bs, bs_sym, space, space_sym}); layer_lock_on(SYM);
+    press(symbol); tap_key(bs);
+    EXPECT_TRUE(is_layer_locked(SYM));
+    tap_key(space); release(symbol); tap_key(base_c);
+    EXPECT_FALSE(is_layer_locked(SYM));
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_LBRC, 0}, {KC_BSPC, 0}, {KC_SPC, 0}, {KC_C, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, LockedSymbolsExitOnDigitsAndDelimitersWithoutLosingInput) {
+    TestDriver driver; capture(driver);
+    const HomeKey keys[] = {
+        {6, 0, KC_1, KC_1, 0}, {1, 4, KC_0, KC_0, 0}, {7, 5, KC_SPC, KC_SPC, 0},
+        {6, 5, KC_ENT, KC_ENT, 0}, {1, 1, KC_TAB, KC_TAB, 0}, {1, 2, KC_ESC, KC_ESC, 0},
+    };
+    for (auto k : keys) {
+        auto base = KeymapKey(DEF, k.col, k.row, k.code), through = KeymapKey(SYM, k.col, k.row, KC_TRNS);
+        set_keymap({base, through}); presses.clear(); layer_lock_on(SYM);
+        tap_key(base);
+        EXPECT_FALSE(is_layer_locked(SYM));
+        EXPECT_EQ(timeless_active_indicators(), 0);
+        EXPECT_EQ(presses, (std::vector<Press>{{k.tap, 0}}));
+        expect_clear();
+    }
+}
+
+TEST_F(Model100Timeless, HoldingSymbolThumbSuppressesAutomaticExitUntilReleased) {
+    TestDriver driver; capture(driver);
+    auto osl = KeymapKey(DEF, 0, 2, OSL(SYM));
+    auto lock = KeymapKey(SYM, 0, 0, QK_LLCK), shift = KeymapKey(DEF, 0, 0, OSM(MOD_LSFT));
+    auto number = KeymapKey(DEF, 6, 0, KC_1), through = KeymapKey(SYM, 6, 0, KC_TRNS);
+    set_keymap({osl, lock, shift, number, through});
+    press(osl, 300); tap_key(lock); tap_key(number);
+    EXPECT_TRUE(is_layer_locked(SYM));
+    release(osl); tap_key(number);
+    EXPECT_FALSE(is_layer_locked(SYM));
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_1, 0}, {KC_1, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, AutomaticExitUnwindsBothLocksButKeepsNumberLayer) {
+    TestDriver driver; capture(driver);
+    auto num = KeymapKey(DEF, 0, 4, TG(NUM)), num_trns = KeymapKey(NUM, 0, 4, KC_TRNS);
+    auto number = KeymapKey(DEF, 6, 0, KC_1), number_num = KeymapKey(NUM, 6, 0, KC_TRNS);
+    auto number_fn = KeymapKey(FUN, 6, 0, KC_F1), number_sym = KeymapKey(SYM, 6, 0, KC_TRNS);
+    auto space = KeymapKey(DEF, 7, 5, KC_SPC), space_num = KeymapKey(NUM, 7, 5, KC_TRNS);
+    auto space_fn = KeymapKey(FUN, 7, 5, KC_ENT), space_sym = KeymapKey(SYM, 7, 5, KC_TRNS);
+    set_keymap({num, num_trns, number, number_num, number_fn, number_sym, space, space_num, space_fn, space_sym});
+    tap_key(num); layer_lock_on(FUN); layer_lock_on(SYM);
+    tap_key(space);
+    EXPECT_FALSE(is_layer_locked(SYM)); EXPECT_FALSE(is_layer_locked(FUN));
+    EXPECT_TRUE(layer_state_is(NUM));
+    EXPECT_EQ(timeless_active_indicators(), TIMELESS_NUM);
+    layer_lock_on(FUN); layer_lock_on(SYM); tap_key(number);
+    EXPECT_FALSE(is_layer_locked(SYM)); EXPECT_FALSE(is_layer_locked(FUN));
+    EXPECT_TRUE(layer_state_is(NUM));
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_SPC, 0}, {KC_1, 0}}));
+    tap_key(num); expect_clear();
+}
+
+TEST_F(Model100Timeless, NumberLayerNeverAutomaticallyExitsAndKeepsBothShiftThumbs) {
+    TestDriver driver; capture(driver);
+    auto num = KeymapKey(DEF, 0, 4, TG(NUM)), num_trns = KeymapKey(NUM, 0, 4, KC_TRNS);
+    auto q = KeymapKey(DEF, 6, 1, KC_Q), q_trns = KeymapKey(NUM, 6, 1, KC_TRNS);
+    auto space = KeymapKey(DEF, 7, 5, KC_SPC), space_trns = KeymapKey(NUM, 7, 5, KC_TRNS);
+    auto pad = KeymapKey(NUM, 4, 6, KC_P1);
+    for (bool right : {false, true}) {
+        auto shift = KeymapKey(DEF, right ? 7 : 0, right ? 4 : 0, OSM(MOD_LSFT));
+        auto shift_trns = KeymapKey(NUM, right ? 7 : 0, right ? 4 : 0, KC_TRNS);
+        set_keymap({num, num_trns, q, q_trns, space, space_trns, pad, shift, shift_trns}); presses.clear();
+        tap_key(num); tap_key(pad); tap_key(space); tap_key(shift); tap_key(q);
+        EXPECT_TRUE(layer_state_is(NUM));
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_P1, 0}, {KC_SPC, 0}, {KC_Q, MOD_BIT(KC_LSFT)}}));
+        tap_key(num); expect_clear(); idle_for(600);
+    }
+}

@@ -55,6 +55,78 @@ bool get_speculative_hold(uint16_t keycode, keyrecord_t *record) {
 // Keep native QMK Flow Tap eligibility: letters, selected punctuation, space;
 // Ctrl/GUI/left-Alt shortcuts are exempt. No TailorKey recovery layers are used.
 
+static bool is_digit(uint16_t keycode) {
+    return (keycode >= KC_1 && keycode <= KC_0) || (keycode >= KC_P1 && keycode <= KC_P0);
+}
+
+static bool auto_unlock_key(uint8_t layer, uint16_t keycode) {
+    if (layer == FUN) {
+        // A palm still held after locking keeps all momentary Fn bindings.
+        if (matrix_is_on(3, 1) || matrix_is_on(7, 6)) {
+            return false;
+        }
+        // Only locked Fn turns the number row back into digits.
+        if (keycode >= KC_F1 && keycode <= KC_F10) {
+            return true;
+        }
+    } else if (layer == SYM) {
+        if (matrix_is_on(2, 0) || matrix_is_on(6, 7)) {
+            return false;
+        }
+        // Symbols can inherit the number row through a lower Fn layer.
+        if (keycode >= KC_F1 && keycode <= KC_F10) {
+            return true;
+        }
+    } else {
+        return false;
+    }
+
+    if (IS_QK_MOD_TAP(keycode)) {
+        keycode = QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+    }
+    if ((keycode >= KC_A && keycode <= KC_Z) || is_digit(keycode)) {
+        return true;
+    }
+    switch (keycode) {
+        case KC_SPC:
+        case KC_ENT:
+        case KC_TAB:
+        case KC_ESC:
+            return true;
+        case KC_GRV:
+        case KC_MINS:
+        case KC_EQL:
+        case KC_SCLN:
+        case KC_QUOT:
+        case KC_COMM:
+        case KC_DOT:
+        case KC_SLSH:
+            // In Fn these are ordinary typing keys. In Sym they are symbols.
+            return layer == FUN;
+        default:
+            return false;
+    }
+}
+
+bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (!IS_KEYEVENT(record->event) || !record->event.pressed) {
+        return true;
+    }
+    // Unwind only qualifying locked layers, from the top. NUM is never changed.
+    // Do this before tap/hold processing so the exit key uses the new layer's
+    // normal action, including home-row mods, and is not swallowed or replayed.
+    for (uint8_t i = 0; i < 2; ++i) {
+        const uint8_t layer = get_highest_layer(layer_state);
+        if (!is_layer_locked(layer) || !auto_unlock_key(layer, keycode)) {
+            break;
+        }
+        layer_lock_off(layer);
+        keycode = get_record_keycode(record, true);
+    }
+    // QMK's source-layer cache retains releases of keys held before the exit.
+    return true;
+}
+
 uint8_t timeless_active_indicators(void) {
     uint8_t flags = 0;
     if (layer_state_is(SYM)) {
