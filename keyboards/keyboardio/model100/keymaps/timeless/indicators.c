@@ -13,7 +13,7 @@ static const struct {
     {4, 7, TIMELESS_SHIFT,     43}, // Right outer thumb Shift: yellow.
     {4, 0, TIMELESS_NUM,       85}, // Top-right Num: green.
     {6, 6, TIMELESS_CAPS_WORD, 21}, // Below right Enter: orange.
-    {4, 6, TIMELESS_LAYER_LOCK, 191}, // Above right Enter: purple.
+    {2, 7, TIMELESS_LAYER_LOCK, 191}, // Left Caps position: purple for either lock.
 };
 
 bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {

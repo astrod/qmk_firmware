@@ -565,7 +565,7 @@ TEST_F(Model100Timeless, FnWordAndLineMovesAllowShiftSelection) {
 
 TEST_F(Model100Timeless, EitherPalmLocksFnUntilLockKeyIsPressedAgain) {
     TestDriver driver; capture(driver);
-    auto lock = KeymapKey(DEF, 6, 4, QK_LLCK), through = KeymapKey(FUN, 6, 4, KC_TRNS);
+    auto lock = KeymapKey(FUN, 2, 2, QK_LLCK), through = KeymapKey(DEF, 2, 2, KC_G);
     auto left = KeymapKey(FUN, 5, 6, KC_LEFT), u = KeymapKey(DEF, 4, 5, KC_U);
     for (bool right_palm : {false, true}) {
         auto fn = KeymapKey(DEF, right_palm ? 6 : 1, right_palm ? 7 : 3, MO(FUN));
@@ -587,7 +587,7 @@ TEST_F(Model100Timeless, EitherPalmLocksFnUntilLockKeyIsPressedAgain) {
 
 TEST_F(Model100Timeless, EitherPalmCanExitLockedFn) {
     TestDriver driver; capture(driver);
-    auto lock = KeymapKey(DEF, 6, 4, QK_LLCK), through = KeymapKey(FUN, 6, 4, KC_TRNS);
+    auto lock = KeymapKey(FUN, 2, 2, QK_LLCK), through = KeymapKey(DEF, 2, 2, KC_G);
     for (bool right_palm : {false, true}) {
         auto fn = KeymapKey(DEF, right_palm ? 6 : 1, right_palm ? 7 : 3, MO(FUN));
         auto palm_through = KeymapKey(FUN, right_palm ? 6 : 1, right_palm ? 7 : 3, KC_TRNS);
@@ -605,7 +605,7 @@ TEST_F(Model100Timeless, EitherPalmCanExitLockedFn) {
 
 TEST_F(Model100Timeless, EitherOneShotThumbCanLockSymbolsAcrossTheArrowMacro) {
     TestDriver driver; capture(driver);
-    auto lock = KeymapKey(DEF, 6, 4, QK_LLCK), through = KeymapKey(SYM, 6, 4, KC_TRNS);
+    auto lock = KeymapKey(SYM, 7, 2, QK_LLCK), through = KeymapKey(DEF, 7, 2, KC_CAPS);
     auto underscore = KeymapKey(SYM, 3, 7, KC_UNDS), arrow = KeymapKey(SYM, 2, 6, SYM_ARROW);
     auto c = KeymapKey(DEF, 4, 3, KC_C);
     for (bool right_thumb : {false, true}) {
@@ -636,8 +636,8 @@ TEST_F(Model100Timeless, StackedLocksUnlockTopFirstAndPreserveToggledNumbers) {
     auto fn = KeymapKey(DEF, 1, 3, MO(FUN)), fn_through = KeymapKey(NUM, 1, 3, KC_TRNS);
     auto osl = KeymapKey(DEF, 0, 2, OSL(SYM));
     auto osl_num = KeymapKey(NUM, 0, 2, KC_TRNS), osl_fn = KeymapKey(FUN, 0, 2, KC_TRNS);
-    auto lock = KeymapKey(DEF, 6, 4, QK_LLCK), lock_num = KeymapKey(NUM, 6, 4, KC_TRNS);
-    auto lock_fn = KeymapKey(FUN, 6, 4, KC_TRNS), lock_sym = KeymapKey(SYM, 6, 4, KC_TRNS);
+    auto lock = KeymapKey(DEF, 7, 2, KC_CAPS), lock_num = KeymapKey(NUM, 7, 2, KC_TRNS);
+    auto lock_fn = KeymapKey(FUN, 7, 2, QK_LLCK), lock_sym = KeymapKey(SYM, 7, 2, QK_LLCK);
     set_keymap({num, num_through, fn, fn_through, osl, osl_num, osl_fn, lock, lock_num, lock_fn, lock_sym});
     tap_key(num); press(fn); tap_key(lock); release(fn);
     tap_key(osl, 40); tap_key(lock);
@@ -659,7 +659,7 @@ TEST_F(Model100Timeless, StackedLocksUnlockTopFirstAndPreserveToggledNumbers) {
 TEST_F(Model100Timeless, UnlockingFnBeforeReleasingCommandDoesNotStick) {
     TestDriver driver; capture(driver);
     auto fn = KeymapKey(DEF, 1, 3, MO(FUN));
-    auto lock = KeymapKey(DEF, 6, 4, QK_LLCK), through = KeymapKey(FUN, 6, 4, KC_TRNS);
+    auto lock = KeymapKey(FUN, 2, 2, QK_LLCK), through = KeymapKey(DEF, 2, 2, KC_G);
     auto cmd = KeymapKey(FUN, 4, 2, KC_LGUI), base_d = KeymapKey(DEF, 4, 2, HRM_D);
     auto right = KeymapKey(FUN, 2, 6, KC_RGHT), u = KeymapKey(DEF, 4, 5, KC_U);
     set_keymap({fn, lock, through, cmd, base_d, right, u});
@@ -670,17 +670,52 @@ TEST_F(Model100Timeless, UnlockingFnBeforeReleasingCommandDoesNotStick) {
     expect_clear();
 }
 
-TEST_F(Model100Timeless, LockKeyDoesNothingOnBaseOrNumbers) {
+TEST_F(Model100Timeless, CapsAndGReturnToBaseFunctionsAfterLockRelease) {
     TestDriver driver; capture(driver);
-    auto lock = KeymapKey(DEF, 6, 4, QK_LLCK), through = KeymapKey(NUM, 6, 4, KC_TRNS);
+    auto caps = KeymapKey(DEF, 7, 2, KC_CAPS), g = KeymapKey(DEF, 2, 2, KC_G);
+    auto fn = KeymapKey(DEF, 1, 3, MO(FUN));
+    auto lock_caps = KeymapKey(FUN, 7, 2, QK_LLCK), lock_g = KeymapKey(FUN, 2, 2, QK_LLCK);
+    auto caps_num = KeymapKey(NUM, 7, 2, KC_TRNS), g_num = KeymapKey(NUM, 2, 2, KC_TRNS);
     auto num = KeymapKey(DEF, 0, 4, TG(NUM)), num_through = KeymapKey(NUM, 0, 4, KC_TRNS);
-    set_keymap({lock, through, num, num_through});
-    tap_key(lock);
-    EXPECT_FALSE(is_layer_locked(DEF)); EXPECT_EQ(layer_state, 0u);
-    tap_key(num); tap_key(lock);
-    EXPECT_FALSE(is_layer_locked(NUM)); EXPECT_TRUE(layer_state_is(NUM));
+    set_keymap({caps, g, fn, lock_caps, lock_g, caps_num, g_num, num, num_through});
+    // Either Fn lock can unlock the other without sending its base key.
+    press(fn); tap_key(lock_g); release(fn); tap_key(lock_caps);
+    press(fn); tap_key(lock_caps); release(fn); tap_key(lock_g);
+    EXPECT_TRUE(presses.empty());
+    EXPECT_FALSE(is_layer_locked(FUN));
+    tap_key(caps); tap_key(g); tap_key(num); tap_key(caps); tap_key(g);
     EXPECT_EQ(timeless_active_indicators(), TIMELESS_NUM);
+    EXPECT_FALSE(is_layer_locked(DEF)); EXPECT_FALSE(is_layer_locked(NUM));
     tap_key(num);
     EXPECT_EQ(timeless_active_indicators(), 0);
-    EXPECT_TRUE(presses.empty()); expect_clear();
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_CAPS, 0}, {KC_G, 0}, {KC_CAPS, 0}, {KC_G, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, LockedFnKeepsVimArrowsPagesPasteAndEnterUntilUnlocked) {
+    TestDriver driver; capture(driver);
+    auto fn = KeymapKey(DEF, 1, 3, MO(FUN)), lock = KeymapKey(FUN, 2, 2, QK_LLCK);
+    auto base_g = KeymapKey(DEF, 2, 2, KC_G);
+    auto left = KeymapKey(FUN, 5, 6, KC_LEFT), down = KeymapKey(FUN, 4, 6, KC_DOWN);
+    auto up = KeymapKey(FUN, 3, 6, KC_UP), right = KeymapKey(FUN, 2, 6, KC_RGHT);
+    auto page_up = KeymapKey(FUN, 5, 7, KC_PGUP), page_down = KeymapKey(FUN, 4, 7, KC_PGDN);
+    auto n = KeymapKey(DEF, 5, 7, KC_N), m = KeymapKey(DEF, 4, 7, KC_M);
+    auto enter = KeymapKey(FUN, 6, 5, KC_ENT), base_enter = KeymapKey(DEF, 6, 5, KC_ENT);
+    auto paste = KeymapKey(FUN, 3, 3, LGUI(KC_V));
+    set_keymap({fn, lock, base_g, left, down, up, right, page_up, page_down, n, m, enter, base_enter, paste});
+    press(fn); tap_key(lock); release(fn);
+    tap_key(left); tap_key(down); tap_key(up); tap_key(right);
+    tap_key(page_up); tap_key(page_down); tap_key(paste);
+    // Release a page key after unlocking: no stray N/M or stuck key.
+    press(page_up); tap_key(lock); release(page_up);
+    tap_key(n); tap_key(m); tap_key(base_enter);
+    press(fn); tap_key(enter); release(fn);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_LEFT, 0}, {KC_DOWN, 0}, {KC_UP, 0}, {KC_RGHT, 0},
+        {KC_PGUP, 0}, {KC_PGDN, 0}, {KC_V, MOD_BIT(KC_LGUI)},
+        {KC_PGUP, 0}, {KC_N, 0}, {KC_M, 0}, {KC_ENT, 0}, {KC_ENT, 0}}));
+    EXPECT_FALSE(is_layer_locked(FUN)); EXPECT_FALSE(layer_state_is(FUN));
+    EXPECT_EQ(get_weak_mods(), 0);
+    EXPECT_EQ(timeless_active_indicators(), 0);
+    expect_clear();
 }
