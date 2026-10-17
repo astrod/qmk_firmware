@@ -40,9 +40,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                                   _______,               _______,
                                       _______,                                        _______
   ),
+// Fn E/R: QK_USER_1 = Select Word, QK_USER_2 = Select Line (macOS).
 [FUN] = LAYOUT(
   QK_BOOT, KC_F1  , KC_F2  , KC_F3  , KC_F4  , KC_F5  ,                      KC_F6  , KC_F7  , KC_F8  , KC_F9  , KC_F10 , KC_F11 ,
-  KC_TAB , _______, _______, _______, _______, _______, RM_TOGG,    _______, _______, LALT(KC_LEFT), LALT(KC_RGHT), LGUI(KC_LEFT), LGUI(KC_RGHT), KC_F12 ,
+  KC_TAB , _______, _______, QK_USER_1, QK_USER_2, _______, RM_TOGG,    _______, _______, LALT(KC_LEFT), LALT(KC_RGHT), LGUI(KC_LEFT), LGUI(KC_RGHT), KC_F12 ,
   QK_LLCK, KC_LCTL, KC_LALT, KC_LGUI, KC_LSFT, QK_LLCK, _______,    KC_ENT , KC_LEFT, KC_DOWN, KC_UP  , KC_RGHT, _______, _______,
   KC_END , LGUI(KC_Z), LGUI(KC_X), LGUI(KC_C), LGUI(KC_V), _______, _______,    _______, KC_PGUP, KC_PGDN, _______, _______, KC_BSLS, KC_PIPE,
                                          QK_LLCK,                                 QK_LLCK,

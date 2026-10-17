@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "timeless.h"
+#include "selection.h"
 
 // Model 100 has the left half in rows 0-3 and the right half in rows 4-7.
 // '*' permits thumb and palm keys to form a chord with either hand, matching
@@ -149,6 +150,9 @@ uint8_t timeless_active_indicators(void) {
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (!process_timeless_selection(keycode, record)) {
+        return false;
+    }
     if (keycode == QK_LAYER_LOCK) {
         // Only lock Fn and symbols. Num already has a toggle; the base layer
         // should ignore this key. Let native Layer Lock handle both edges.

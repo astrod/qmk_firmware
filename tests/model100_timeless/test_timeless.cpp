@@ -6,6 +6,7 @@
 extern "C" {
 #include "action_tapping.h"
 #include "keyboards/keyboardio/model100/keymaps/timeless/timeless.h"
+#include "keyboards/keyboardio/model100/keymaps/timeless/selection.h"
 }
 
 using Press = std::pair<uint8_t, uint8_t>; // HID key and modifiers on keydown.
@@ -28,6 +29,9 @@ protected:
             });
         caps_word_off();
         layer_lock_all_off();
+        keyrecord_t reset = {};
+        reset.event.pressed = true;
+        process_timeless_selection(KC_NO, &reset);
         idle_for(600); // Clear QMK's previous typing interval between cases.
     }
 
@@ -766,8 +770,8 @@ TEST_F(Model100Timeless, EitherShiftThumbLocksOneShotSymbolsAndUnlocksCleanly) {
 TEST_F(Model100Timeless, LockedFnLettersExitAndSendTheFirstLetterOnce) {
     TestDriver driver; capture(driver);
     const HomeKey letters[] = {
-        {6, 1, KC_Q, KC_Q, 0}, {5, 1, KC_W, KC_W, 0}, {4, 1, KC_E, KC_E, 0},
-        {3, 1, KC_R, KC_R, 0}, {2, 1, KC_T, KC_T, 0}, {5, 5, KC_Y, KC_Y, 0}, {2, 3, KC_B, KC_B, 0},
+        {6, 1, KC_Q, KC_Q, 0}, {5, 1, KC_W, KC_W, 0},
+        {2, 1, KC_T, KC_T, 0}, {5, 5, KC_Y, KC_Y, 0}, {2, 3, KC_B, KC_B, 0},
     };
     for (auto k : letters) {
         auto base = KeymapKey(DEF, k.col, k.row, k.code), through = KeymapKey(FUN, k.col, k.row, KC_TRNS);
@@ -950,4 +954,151 @@ TEST_F(Model100Timeless, NumberLayerNeverAutomaticallyExitsAndKeepsBothShiftThum
         EXPECT_EQ(presses, (std::vector<Press>{{KC_P1, 0}, {KC_SPC, 0}, {KC_Q, MOD_BIT(KC_LSFT)}}));
         tap_key(num); expect_clear(); idle_for(600);
     }
+}
+
+static constexpr uint8_t opt = MOD_BIT(KC_LALT);
+static constexpr uint8_t cmd = MOD_BIT(KC_LGUI);
+static constexpr uint8_t shift_mod = MOD_BIT(KC_LSFT);
+
+TEST_F(Model100Timeless, HeldFnWordSelectionUsesMacHotkeysAndBaseERStillType) {
+    TestDriver driver; capture(driver);
+    auto fn = KeymapKey(DEF, 1, 3, MO(FUN));
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), line = KeymapKey(FUN, 3, 1, SELECT_LINE);
+    auto e = KeymapKey(DEF, 4, 1, KC_E), r = KeymapKey(DEF, 3, 1, KC_R);
+    set_keymap({fn, word, line, e, r});
+    press(fn); tap_key(word); tap_key(word); release(fn);
+    tap_key(e); tap_key(r);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod},
+        {KC_RGHT, opt | shift_mod}, {KC_E, 0}, {KC_R, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, LockedFnWordSelectionExtendsWithoutUnlocking) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), e = KeymapKey(DEF, 4, 1, KC_E);
+    set_keymap({word, e}); layer_lock_on(FUN);
+    tap_key(word); tap_key(word); tap_key(word);
+    EXPECT_TRUE(is_layer_locked(FUN));
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod},
+        {KC_RGHT, opt | shift_mod}, {KC_RGHT, opt | shift_mod}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, LockedFnLineSelectionExtendsToNextLineEnd) {
+    TestDriver driver; capture(driver);
+    auto line = KeymapKey(FUN, 3, 1, SELECT_LINE), r = KeymapKey(DEF, 3, 1, KC_R);
+    set_keymap({line, r}); layer_lock_on(FUN);
+    tap_key(line); tap_key(line);
+    EXPECT_TRUE(is_layer_locked(FUN));
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_LEFT, cmd}, {KC_RGHT, cmd | shift_mod},
+        {KC_DOWN, shift_mod}, {KC_RGHT, cmd | shift_mod}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, SelectionCompletesBeforeRollingIntoCopyCutOrPaste) {
+    TestDriver driver; capture(driver);
+    for (uint8_t key : {KC_C, KC_X, KC_V}) {
+        auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), e = KeymapKey(DEF, 4, 1, KC_E);
+        auto edit = KeymapKey(FUN, 4, 3, LGUI(key));
+        set_keymap({word, e, edit}); layer_lock_on(FUN); presses.clear();
+        press(word, 400);
+        expect_clear(); // Even with E still down, no selection keys are held.
+        tap_key(edit); release(word);
+        EXPECT_TRUE(is_layer_locked(FUN));
+        EXPECT_EQ(presses, (std::vector<Press>{
+            {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}, {key, cmd}}));
+        expect_clear();
+    }
+}
+
+TEST_F(Model100Timeless, SelectionTypeChangeStartsFresh) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), line = KeymapKey(FUN, 3, 1, SELECT_LINE);
+    set_keymap({word, line}); layer_lock_on(FUN);
+    tap_key(word); tap_key(line); tap_key(word);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod},
+        {KC_LEFT, cmd}, {KC_RGHT, cmd | shift_mod},
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, CopyAndArrowResetWordSelection) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD);
+    auto copy = KeymapKey(FUN, 4, 3, LGUI(KC_C)), left = KeymapKey(FUN, 5, 6, KC_LEFT);
+    set_keymap({word, copy, left}); layer_lock_on(FUN);
+    tap_key(word); tap_key(copy); presses.clear(); tap_key(word);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}}));
+    tap_key(left); presses.clear(); tap_key(word);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, SelectionRestartsAfterFiveSecondsAndTimerWrap) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD);
+    set_keymap({word}); layer_lock_on(FUN);
+    tap_key(word); idle_for(5100); presses.clear(); tap_key(word);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}}));
+    idle_for(65536); presses.clear(); tap_key(word);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, SelectionPreservesHeldModifiersWithoutAddingThemToMacro) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), line = KeymapKey(FUN, 3, 1, SELECT_LINE);
+    auto gui = KeymapKey(FUN, 4, 2, KC_LGUI), shift = KeymapKey(FUN, 3, 2, KC_LSFT);
+    set_keymap({word, line, gui, shift}); layer_lock_on(FUN);
+    press(gui); press(shift); tap_key(word); tap_key(line);
+    EXPECT_EQ(get_mods(), cmd | shift_mod);
+    EXPECT_EQ(previous.mods, cmd | shift_mod);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod},
+        {KC_LEFT, cmd}, {KC_RGHT, cmd | shift_mod}}));
+    release(shift); release(gui); expect_clear();
+}
+
+TEST_F(Model100Timeless, SelectionConsumesOneShotAndEndsCapsWord) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), q = KeymapKey(DEF, 6, 1, KC_Q);
+    auto q_fn = KeymapKey(FUN, 6, 1, KC_TRNS);
+    set_keymap({word, q, q_fn}); layer_lock_on(FUN);
+    set_oneshot_mods(MOD_BIT(KC_LGUI) | MOD_BIT(KC_LSFT));
+    caps_word_on();
+    tap_key(word);
+    EXPECT_FALSE(is_caps_word_on()); EXPECT_EQ(get_oneshot_mods(), 0);
+    EXPECT_EQ(get_weak_mods(), 0);
+    tap_key(q);
+    EXPECT_FALSE(is_layer_locked(FUN));
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}, {KC_Q, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, SelectionReleaseAfterAutomaticExitDoesNotTypeEOrStick) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), e = KeymapKey(DEF, 4, 1, KC_E);
+    auto space = KeymapKey(DEF, 7, 5, KC_SPC), fn_space = KeymapKey(FUN, 7, 5, KC_ENT);
+    set_keymap({word, e, space, fn_space}); layer_lock_on(FUN);
+    press(word); tap_key(fn_space); release(word); tap_key(e);
+    EXPECT_FALSE(layer_state_is(FUN));
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}, {KC_SPC, 0}, {KC_E, 0}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, ReenteringFnWithoutEditingKeepsSelectionExtension) {
+    TestDriver driver; capture(driver);
+    auto fn = KeymapKey(DEF, 1, 3, MO(FUN)), word = KeymapKey(FUN, 4, 1, SELECT_WORD);
+    set_keymap({fn, word});
+    press(fn); tap_key(word); release(fn);
+    press(fn); tap_key(word); release(fn);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}, {KC_RGHT, opt | shift_mod}}));
+    expect_clear();
 }

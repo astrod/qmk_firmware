@@ -17,6 +17,8 @@ uint8_t timeless_active_indicators(void);
 // TailorKey HRM_macOS layer. In particular, L uses LEFT Alt on purpose.
 enum timeless_keycodes {
     SYM_ARROW = QK_USER_0,
+    SELECT_WORD = QK_USER_1,
+    SELECT_LINE = QK_USER_2,
     HRM_A = LCTL_T(KC_A),
     HRM_S = LALT_T(KC_S),
     HRM_D = LGUI_T(KC_D),

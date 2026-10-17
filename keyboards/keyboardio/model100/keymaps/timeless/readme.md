@@ -10,6 +10,7 @@ The home-row timing and modifiers are in `config.h` and `timeless.c`.
 - In Fn and Sym, both outer thumbs lock or unlock the current layer. The Caps
   position also does this in both layers; G remains an extra Fn lock key.
 - Fn+F is a plain Shift, including while Fn is locked, for arrow selection.
+- Fn+E selects a word; Fn+R selects a line with macOS editing shortcuts.
 - Num keeps its toggle and never exits automatically.
 
 ## Automatic unlock
@@ -21,7 +22,7 @@ handling, rather than discarded. Num remains on if it was already on.
 
 | Locked layer | Stays active | Unlocks and processes the same key in the resulting layer |
 | --- | --- | --- |
-| Fn | Arrows, word/line/page movement, modifiers, undo/cut/copy/paste, Delete, Fn backslash/pipe, layer and lighting controls | Ordinary letters/punctuation, number row, Space/Enter/Tab/Esc |
+| Fn | Arrows, word/line/page movement, word/line selection, modifiers, undo/cut/copy/paste, Delete, Fn backslash/pipe, layer and lighting controls | Ordinary letters/punctuation, number row, Space/Enter/Tab/Esc |
 | Sym | Symbols, the `->` macro, Backspace, modifiers, layer and lighting controls | Digits, Space/Enter/Tab/Esc, any ordinary letters inherited from lower layers |
 
 Locked Fn therefore differs from held Fn at the number row (digits instead of
@@ -30,7 +31,7 @@ F1–F10), the Space thumb (Space instead of Enter), and the backtick position
 continues to send Delete and keep the lock.
 
 Keys with an assigned layer action still perform it: HJKL remain arrows, ASDF
-remain modifiers, N/M remain Page Up/Down, and A in Sym remains `!`. To start a
+remain modifiers, E/R select words/lines, N/M remain Page Up/Down, and A in Sym remains `!`. To start a
 word with one of these letters, unlock manually first.
 
 If both Fn and Sym are locked, an exit key can unlock both, from the top down.
@@ -42,6 +43,32 @@ lock, the outer thumbs show yellow for pending one-shot Shift. RGB must be on
 for these indicators to be visible.
 
 No combos are enabled.
+
+## Word and line selection (macOS)
+
+- Fn+E selects the word at the cursor. Repeated taps extend by one word.
+- Fn+R selects the current line. Repeated taps extend to the next line's end.
+- Both work with held or locked Fn. They keep Fn locked.
+- Each tap finishes its hotkeys immediately; holding E/R does not auto-repeat.
+  This lets E/R overlap with the next Copy/Cut/Paste key without a stuck arrow
+  or selection modifier. Physically held modifiers are restored afterwards.
+- These two keys have fixed meanings even with Shift held. A pending one-shot
+  modifier is consumed; Caps Word ends. Fn+E/R do not type E/R or auto-unlock.
+- Other typing, navigation, or editing starts the next selection afresh.
+  Modifier and layer keys do not reset it. A gap of `SELECT_WORD_TIMEOUT`
+  (5000 ms) between selection taps also resets it; this does not deselect text.
+- The keyboard cannot see mouse selections. After moving the cursor with a
+  mouse, wait five seconds or use an arrow before starting a new selection.
+- Word boundaries and wrapped-line behavior depend on the application. These
+  are standard Mac text-editing shortcuts, not Vim normal-mode commands.
+
+`selection.c` adapts the Mac forward-selection sequences from
+[Getreuer's Select Word](https://getreuer.info/posts/keyboards/select-word/),
+pinned to `getreuer/qmk-modules` commit
+`8c55ac1c5d547d1ff324ae2834b26f2075222c97`. It keeps only the two requested actions
+and uses complete taps rather than held shortcuts. The source is included in
+the keymap so a normal build needs no extra module checkout. Its Apache-2.0
+license is in `LICENSE.select-word`.
 
 ## Build and test
 

@@ -18,3 +18,6 @@
 // Getreuer's protection against lone Alt/GUI taps during speculation.
 #define DUMMY_MOD_NEUTRALIZER_KEYCODE KC_RCTL
 #define MODS_TO_NEUTRALIZE { MOD_BIT(KC_LALT), MOD_BIT(KC_LGUI), MOD_BIT(KC_RGUI) }
+
+// Start a fresh word/line selection after five seconds without a selection tap.
+#define SELECT_WORD_TIMEOUT 5000
