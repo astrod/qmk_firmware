@@ -1004,9 +1004,9 @@ TEST_F(Model100Timeless, SelectionCompletesBeforeRollingIntoCopyCutOrPaste) {
         auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), e = KeymapKey(DEF, 4, 1, KC_E);
         auto edit = KeymapKey(FUN, 4, 3, LGUI(key));
         set_keymap({word, e, edit}); layer_lock_on(FUN); presses.clear();
-        press(word, 400);
+        press(word, 200);
         expect_clear(); // Even with E still down, no selection keys are held.
-        tap_key(edit); release(word);
+        tap_key(edit); idle_for(600); release(word);
         EXPECT_TRUE(is_layer_locked(FUN));
         EXPECT_EQ(presses, (std::vector<Press>{
             {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}, {key, cmd}}));
@@ -1101,4 +1101,111 @@ TEST_F(Model100Timeless, ReenteringFnWithoutEditingKeepsSelectionExtension) {
     EXPECT_EQ(presses, (std::vector<Press>{
         {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}, {KC_RGHT, opt | shift_mod}}));
     expect_clear();
+}
+
+TEST_F(Model100Timeless, WordHoldStartsAt400msRepeatsEvery150msAndStopsOnRelease) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD);
+    set_keymap({word}); layer_lock_on(FUN);
+    press(word, SELECT_WORD_REPEAT_DELAY - 1);
+    EXPECT_EQ(presses.size(), 3u);
+    idle_for(2);
+    EXPECT_EQ(presses.size(), 4u);
+    EXPECT_EQ(presses.back(), (Press{KC_RGHT, opt | shift_mod}));
+    expect_clear();
+    idle_for(SELECT_WORD_REPEAT_INTERVAL - 10);
+    EXPECT_EQ(presses.size(), 4u);
+    idle_for(20);
+    EXPECT_EQ(presses.size(), 5u);
+    EXPECT_EQ(presses.back(), (Press{KC_RGHT, opt | shift_mod}));
+    EXPECT_TRUE(is_layer_locked(FUN));
+    release(word); idle_for(700);
+    EXPECT_EQ(presses.size(), 5u);
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, CopyStopsActiveWordRepeatAndANewPressCanStartAgain) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), copy = KeymapKey(FUN, 4, 3, LGUI(KC_C));
+    set_keymap({word, copy}); layer_lock_on(FUN);
+    press(word, 420);
+    ASSERT_EQ(presses.size(), 4u);
+    tap_key(copy);
+    EXPECT_EQ(presses.back(), (Press{KC_C, cmd}));
+    idle_for(700); EXPECT_EQ(presses.size(), 5u);
+    release(word); presses.clear();
+    press(word, 420);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod}, {KC_RGHT, opt | shift_mod}}));
+    release(word); expect_clear();
+}
+
+TEST_F(Model100Timeless, LineKeyNeverRepeatsOnHoldAndCancelsWordRepeat) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), line = KeymapKey(FUN, 3, 1, SELECT_LINE);
+    set_keymap({word, line}); layer_lock_on(FUN);
+    press(word, 200); press(line, 1000); release(line);
+    idle_for(500); release(word);
+    EXPECT_EQ(presses, (std::vector<Press>{
+        {KC_RGHT, opt}, {KC_LEFT, opt}, {KC_RGHT, opt | shift_mod},
+        {KC_LEFT, cmd}, {KC_RGHT, cmd | shift_mod}}));
+    presses.clear(); press(line, 1000); release(line);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_DOWN, shift_mod}, {KC_RGHT, cmd | shift_mod}}));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, ReleasingMomentaryFnStopsWordRepeatEvenWithEStillDown) {
+    TestDriver driver; capture(driver);
+    auto fn = KeymapKey(DEF, 1, 3, MO(FUN));
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD), e = KeymapKey(DEF, 4, 1, KC_E);
+    set_keymap({fn, word, e});
+    press(fn); press(word, 420); release(fn);
+    const size_t count = presses.size();
+    idle_for(700); EXPECT_EQ(presses.size(), count);
+    release(word); tap_key(e);
+    EXPECT_EQ(presses.back(), (Press{KC_E, 0}));
+    EXPECT_FALSE(layer_state_is(FUN));
+    expect_clear();
+}
+
+TEST_F(Model100Timeless, PhysicalHomeRowPressCancelsBeforeItsTapHoldDecision) {
+    TestDriver driver; capture(driver);
+    auto fn = KeymapKey(DEF, 1, 3, MO(FUN)), word = KeymapKey(FUN, 4, 1, SELECT_WORD);
+    auto semi = KeymapKey(DEF, 1, 6, HRM_SCLN), semi_fn = KeymapKey(FUN, 1, 6, KC_TRNS);
+    set_keymap({fn, word, semi, semi_fn});
+    press(fn); press(word, 350); press(semi_fn, 100);
+    // Fn is still held, so auto-unlock does not mask repeat cancellation.
+    EXPECT_TRUE(layer_state_is(FUN));
+    EXPECT_EQ(presses.size(), 3u);
+    idle_for(250); release(semi_fn); idle_for(500);
+    EXPECT_EQ(presses.size(), 3u);
+    release(word); release(fn); expect_clear();
+}
+
+TEST_F(Model100Timeless, WordRepeatRestoresHeldModsAndNewModifierPressStopsIt) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD);
+    auto gui = KeymapKey(FUN, 4, 2, KC_LGUI), shift = KeymapKey(FUN, 3, 2, KC_LSFT);
+    set_keymap({word, gui, shift}); layer_lock_on(FUN);
+    press(gui); press(word, 420);
+    ASSERT_EQ(presses.size(), 4u);
+    EXPECT_EQ(presses.back(), (Press{KC_RGHT, opt | shift_mod}));
+    EXPECT_EQ(get_mods(), cmd); EXPECT_EQ(previous.mods, cmd);
+    press(shift); idle_for(700); release(shift); idle_for(700);
+    EXPECT_EQ(presses.size(), 4u);
+    release(word); release(gui); expect_clear();
+}
+
+TEST_F(Model100Timeless, SpaceStopsWordRepeatExitsFnAndKeepsNum) {
+    TestDriver driver; capture(driver);
+    auto word = KeymapKey(FUN, 4, 1, SELECT_WORD);
+    auto space = KeymapKey(DEF, 7, 5, KC_SPC), num_space = KeymapKey(NUM, 7, 5, KC_TRNS);
+    auto fn_space = KeymapKey(FUN, 7, 5, KC_ENT);
+    set_keymap({word, space, num_space, fn_space}); layer_on(NUM); layer_lock_on(FUN);
+    press(word, 420); tap_key(fn_space);
+    EXPECT_EQ(presses.back(), (Press{KC_SPC, 0}));
+    EXPECT_FALSE(layer_state_is(FUN)); EXPECT_TRUE(layer_state_is(NUM));
+    idle_for(700); release(word);
+    EXPECT_EQ(presses.size(), 5u);
+    layer_off(NUM); expect_clear();
 }

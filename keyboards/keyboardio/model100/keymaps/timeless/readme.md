@@ -47,9 +47,14 @@ No combos are enabled.
 ## Word and line selection (macOS)
 
 - Fn+E selects the word at the cursor. Repeated taps extend by one word.
+- Holding E extends by one word after 400 ms, then every 150 ms. Tune
+  `SELECT_WORD_REPEAT_DELAY` and `SELECT_WORD_REPEAT_INTERVAL` in `config.h`.
+  Releasing E, pressing any other key, or leaving Fn stops the repeat.
+  After an interruption it stays stopped until E is pressed again.
 - Fn+R selects the current line. Repeated taps extend to the next line's end.
+  Holding R does not repeat.
 - Both work with held or locked Fn. They keep Fn locked.
-- Each tap finishes its hotkeys immediately; holding E/R does not auto-repeat.
+- Each selection step finishes its hotkeys immediately, including hold repeats.
   This lets E/R overlap with the next Copy/Cut/Paste key without a stuck arrow
   or selection modifier. Physically held modifiers are restored afterwards.
 - These two keys have fixed meanings even with Shift held. A pending one-shot
@@ -66,7 +71,7 @@ No combos are enabled.
 [Getreuer's Select Word](https://getreuer.info/posts/keyboards/select-word/),
 pinned to `getreuer/qmk-modules` commit
 `8c55ac1c5d547d1ff324ae2834b26f2075222c97`. It keeps only the two requested actions
-and uses complete taps rather than held shortcuts. The source is included in
+and emits complete taps for each step, including timed word repeats. The source is included in
 the keymap so a normal build needs no extra module checkout. Its Apache-2.0
 license is in `LICENSE.select-word`.
 

@@ -110,6 +110,8 @@ static bool auto_unlock_key(uint8_t layer, uint16_t keycode) {
 }
 
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // Cancel repeats at physical key input, before a home-row tap/hold waits.
+    pre_process_timeless_selection(record);
     if (!IS_KEYEVENT(record->event) || !record->event.pressed) {
         return true;
     }
@@ -147,6 +149,10 @@ uint8_t timeless_active_indicators(void) {
         flags |= TIMELESS_LAYER_LOCK;
     }
     return flags;
+}
+
+void housekeeping_task_user(void) {
+    timeless_selection_task();
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {

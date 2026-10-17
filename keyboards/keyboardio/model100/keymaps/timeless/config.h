@@ -21,3 +21,6 @@
 
 // Start a fresh word/line selection after five seconds without a selection tap.
 #define SELECT_WORD_TIMEOUT 5000
+// Word selection: first hold repeat at 400 ms, then one word every 150 ms.
+#define SELECT_WORD_REPEAT_DELAY 400
+#define SELECT_WORD_REPEAT_INTERVAL 150
