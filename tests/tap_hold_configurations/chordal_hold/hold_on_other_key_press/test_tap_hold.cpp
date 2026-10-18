@@ -24,6 +24,41 @@ using testing::InSequence;
 
 class ChordalHoldHoldOnOtherKeyPress : public TestFixture {};
 
+TEST_F(ChordalHoldHoldOnOtherKeyPress, queued_modifier_release_is_not_promoted_to_tapping_key) {
+    TestDriver driver;
+    report_keyboard_t last = {};
+    bool sent_u = false;
+    EXPECT_CALL(driver, send_keyboard_mock(_)).Times(testing::AnyNumber())
+        .WillRepeatedly([&](report_keyboard_t &report) {
+            last = report;
+            for (uint8_t key : report.keys) {
+                if (key == KC_U) {
+                    sent_u = true;
+                    EXPECT_EQ(report.mods, MOD_BIT(KC_LSFT));
+                }
+            }
+        });
+
+    auto command = KeymapKey(0, 1, 0, LGUI_T(KC_D));
+    auto shift = KeymapKey(0, 2, 0, LSFT_T(KC_F));
+    auto u = KeymapKey(0, MATRIX_COLS - 1, 0, KC_U);
+    set_keymap({command, shift, u});
+    command.press(); idle_for(TAPPING_TERM + 1);
+    EXPECT_EQ(get_mods(), MOD_BIT(KC_LGUI));
+    shift.press(); run_one_scan_loop();
+    command.release(); run_one_scan_loop();
+    // The release waits while Shift is undecided. U must settle Shift and
+    // process the queued Command release, rather than losing that release.
+    u.press(); run_one_scan_loop();
+    EXPECT_TRUE(sent_u);
+    EXPECT_EQ(get_mods(), MOD_BIT(KC_LSFT));
+    u.release(); run_one_scan_loop();
+    shift.release(); idle_for(TAPPING_TERM + 1);
+    EXPECT_EQ(get_mods(), 0);
+    EXPECT_EQ(last.mods, 0);
+    for (uint8_t key : last.keys) EXPECT_EQ(key, KC_NO);
+}
+
 TEST_F(ChordalHoldHoldOnOtherKeyPress, chord_with_mod_tap_settled_as_hold) {
     TestDriver driver;
     InSequence s;

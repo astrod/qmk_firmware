@@ -20,6 +20,11 @@ left and 210 ms on the right. Flow Tap can still settle a home-row key as a
 letter during fast typing; pressing an opposite-hand key cannot undo that.
 Speculative Hold and its guards remain enabled. Key positions do not change.
 
+This branch includes a QMK tap-hold fix in `quantum/action_tapping.c`: queued
+key releases must not become the next pending tap-hold press. Without it,
+holding D, pressing F, releasing D, then pressing U can leave Command stuck.
+Keep this fix when updating QMK until upstream includes the same correction.
+
 ## Layer controls
 
 - Both palm keys hold Fn. Both symbol thumbs provide one-shot Sym.

@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <utility>
 #include <vector>
+#include <random>
+#include <sstream>
 #include "test_common.hpp"
 extern "C" {
 #include "action_tapping.h"
@@ -65,6 +67,55 @@ TEST_F(Model100Timeless, AllEightTapAsUnmodifiedLetters) {
         tap_key(key, 40);
         EXPECT_EQ(presses, (std::vector<Press>{{h.tap, 0}}));
         expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, HeldCommandReleaseDuringPendingShiftDoesNotStick) {
+    TestDriver driver; capture(driver);
+    auto d = KeymapKey(DEF, 4, 2, HRM_D), f = KeymapKey(DEF, 3, 2, HRM_F), u = KeymapKey(DEF, 4, 5, KC_U);
+    set_keymap({d, f, u});
+    press(d, 300); press(f); release(d); press(u);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_U, MOD_BIT(KC_LSFT)}}));
+    release(u); release(f); idle_for(600);
+    expect_clear();
+    presses.clear(); tap_key(u);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_U, 0}}));
+}
+
+TEST_F(Model100Timeless, SeededBaseChordsAlwaysReleaseModifiers) {
+    TestDriver driver; capture(driver);
+    std::vector<KeymapKey> keys;
+    for (auto h : home) keys.emplace_back(DEF, h.col, h.row, h.code);
+    keys.emplace_back(DEF, 5, 1, KC_W);
+    keys.emplace_back(DEF, 4, 5, KC_U);
+    keys.emplace_back(DEF, 7, 5, KC_SPC);
+    for (auto key : keys) add_key(key);
+    // Fixed seed keeps all 2,000 sequences repeatable. Check real host reports
+    // after releasing every physical key, including varied release orders.
+    std::mt19937 rng(100);
+    const unsigned delays[] = {1, 10, 40, 100, 220, 300};
+    for (unsigned trial = 0; trial < 2000; ++trial) {
+        std::vector<bool> down(keys.size());
+        std::ostringstream events;
+        for (unsigned step = 0; step < 20; ++step) {
+            const unsigned i = rng() % keys.size();
+            const unsigned delay = delays[rng() % 6];
+            events << i << (down[i] ? "up" : "down") << ":" << delay << " ";
+            if (down[i]) keys[i].release(); else keys[i].press();
+            down[i] = !down[i];
+            idle_for(delay);
+        }
+        for (unsigned i = 0; i < keys.size(); ++i) {
+            if (down[i]) { release(keys[i]); events << i << "up "; }
+        }
+        idle_for(600);
+        SCOPED_TRACE(trial);
+        SCOPED_TRACE(events.str());
+        ASSERT_EQ(get_mods(), 0);
+        ASSERT_EQ(get_speculative_mods(), 0);
+        ASSERT_EQ(previous.mods, 0);
+        for (uint8_t key : previous.keys) ASSERT_EQ(key, KC_NO);
+        presses.clear();
     }
 }
 
