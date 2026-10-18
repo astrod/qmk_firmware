@@ -3,6 +3,23 @@
 The base layout uses QWERTY, native Chordal Hold, Flow Tap and Speculative Hold.
 The home-row timing and modifiers are in `config.h` and `timeless.c`.
 
+## Home-row modifiers
+
+All eight home-row modifiers use `HOLD_ON_OTHER_KEY_PRESS` with Chordal Hold.
+When a home-row key is still undecided, pressing an opposite-hand key settles
+it as a modifier immediately. For example, holding D and pressing U sends
+Command+U on U's press, without waiting for its release. Releasing D first
+does not turn that chord back into letters.
+
+Chordal Hold still resolves same-hand letter pairs as taps within the tapping
+term. Opposite-hand letter presses that overlap can instead become shortcuts,
+especially at the start of typing or after a pause.
+
+The tapping term remains 280 ms, Flow Tap 220 ms, and Quick Tap 175 ms on the
+left and 210 ms on the right. Flow Tap can still settle a home-row key as a
+letter during fast typing; pressing an opposite-hand key cannot undo that.
+Speculative Hold and its guards remain enabled. Key positions do not change.
+
 ## Layer controls
 
 - Both palm keys hold Fn. Both symbol thumbs provide one-shot Sym.

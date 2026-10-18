@@ -104,14 +104,60 @@ TEST_F(Model100Timeless, OppositeHandNestedFUUsesShiftBeforeTimeout) {
     expect_clear();
 }
 
+TEST_F(Model100Timeless, AllEightOppositeHandChordsSendOnPressWithEitherReleaseOrder) {
+    TestDriver driver; capture(driver);
+    for (auto h : home) {
+        for (bool release_mod_first : {false, true}) {
+            SCOPED_TRACE(h.code);
+            SCOPED_TRACE(release_mod_first);
+            auto key = KeymapKey(DEF, h.col, h.row, h.code);
+            auto other = h.row < 4 ? KeymapKey(DEF, 4, 5, KC_U) : KeymapKey(DEF, 5, 1, KC_W);
+            const uint8_t letter = h.row < 4 ? KC_U : KC_W;
+            set_keymap({key, other}); presses.clear();
+            press(key);
+            EXPECT_EQ(get_mods(), 0);
+            press(other, 1);
+            // Check the actual key report while both keys are still down.
+            // A speculative modifier alone must not satisfy this check.
+            EXPECT_EQ(get_mods(), h.mod);
+            EXPECT_EQ(presses, (std::vector<Press>{{letter, h.mod}}));
+            if (release_mod_first) {
+                release(key); release(other);
+            } else {
+                release(other); release(key);
+            }
+            EXPECT_EQ(presses, (std::vector<Press>{{letter, h.mod}}));
+            expect_clear(); idle_for(600);
+        }
+    }
+}
+
+TEST_F(Model100Timeless, AllEightSameHandChordsStillSendLettersOnPress) {
+    TestDriver driver; capture(driver);
+    for (auto h : home) {
+        SCOPED_TRACE(h.code);
+        auto key = KeymapKey(DEF, h.col, h.row, h.code);
+        auto other = h.row < 4 ? KeymapKey(DEF, 5, 1, KC_W) : KeymapKey(DEF, 4, 5, KC_U);
+        const uint8_t letter = h.row < 4 ? KC_W : KC_U;
+        set_keymap({key, other}); presses.clear();
+        press(key); press(other, 1);
+        EXPECT_EQ(presses, (std::vector<Press>{{h.tap, 0}, {letter, 0}}));
+        EXPECT_EQ(get_mods(), 0);
+        EXPECT_EQ(get_speculative_mods(), 0);
+        release(other); release(key);
+        expect_clear(); idle_for(600);
+    }
+}
+
 TEST_F(Model100Timeless, TwoSameHandHomeModsCanFormCommandShiftU) {
     TestDriver driver; capture(driver);
     auto d = KeymapKey(0, 4, 2, HRM_D), f = KeymapKey(0, 3, 2, HRM_F), u = KeymapKey(0, 4, 5, KC_U);
     set_keymap({d, f, u});
     press(d); press(f);
     EXPECT_EQ(get_speculative_mods(), MOD_BIT(KC_LGUI)); // ONE_KEY guard.
-    tap_key(u); release(f); release(d);
+    press(u, 1);
     EXPECT_EQ(presses, (std::vector<Press>{{KC_U, MOD_BIT(KC_LGUI) | MOD_BIT(KC_LSFT)}}));
+    release(u); release(f); release(d);
     expect_clear();
 }
 
