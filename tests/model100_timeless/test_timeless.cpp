@@ -75,8 +75,10 @@ TEST_F(Model100Timeless, HeldCommandReleaseDuringPendingShiftDoesNotStick) {
     auto d = KeymapKey(DEF, 4, 2, HRM_D), f = KeymapKey(DEF, 3, 2, HRM_F), u = KeymapKey(DEF, 4, 5, KC_U);
     set_keymap({d, f, u});
     press(d, 300); press(f); release(d); press(u);
+    EXPECT_TRUE(presses.empty());
+    release(u);
     EXPECT_EQ(presses, (std::vector<Press>{{KC_U, MOD_BIT(KC_LSFT)}}));
-    release(u); release(f); idle_for(600);
+    release(f); idle_for(600);
     expect_clear();
     presses.clear(); tap_key(u);
     EXPECT_EQ(presses, (std::vector<Press>{{KC_U, 0}}));
@@ -119,6 +121,22 @@ TEST_F(Model100Timeless, SeededBaseChordsAlwaysReleaseModifiers) {
     }
 }
 
+TEST_F(Model100Timeless, QueuedSameHandLetterReleaseFollowsItsPress) {
+    TestDriver driver; capture(driver);
+    auto ctrl = KeymapKey(DEF, 0, 3, KC_LCTL);
+    auto semicolon = KeymapKey(DEF, 1, 6, HRM_SCLN);
+    auto d = KeymapKey(DEF, 4, 2, HRM_D);
+    auto w = KeymapKey(DEF, 5, 1, KC_W);
+    set_keymap({ctrl, semicolon, d, w});
+    // Ctrl disables Flow Tap. Releasing the first mod-tap leaves the second
+    // mod-tap and its same-hand W press queued for Chordal Hold to settle.
+    press(ctrl); press(semicolon); press(d); press(w);
+    release(semicolon); release(w); release(d); release(ctrl);
+    idle_for(600);
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_SCLN, MOD_BIT(KC_LCTL)}, {KC_D, MOD_BIT(KC_LCTL)}, {KC_W, MOD_BIT(KC_LCTL)}}));
+    expect_clear();
+}
+
 TEST_F(Model100Timeless, AllEightHoldAt280msWithSourceModifiers) {
     TestDriver driver; capture(driver);
     for (auto h : home) {
@@ -155,7 +173,7 @@ TEST_F(Model100Timeless, OppositeHandNestedFUUsesShiftBeforeTimeout) {
     expect_clear();
 }
 
-TEST_F(Model100Timeless, AllEightOppositeHandChordsSendOnPressWithEitherReleaseOrder) {
+TEST_F(Model100Timeless, AllEightOppositeHandChordsDistinguishRollsFromNestedTaps) {
     TestDriver driver; capture(driver);
     for (auto h : home) {
         for (bool release_mod_first : {false, true}) {
@@ -168,16 +186,21 @@ TEST_F(Model100Timeless, AllEightOppositeHandChordsSendOnPressWithEitherReleaseO
             press(key);
             EXPECT_EQ(get_mods(), 0);
             press(other, 1);
-            // Check the actual key report while both keys are still down.
-            // A speculative modifier alone must not satisfy this check.
-            EXPECT_EQ(get_mods(), h.mod);
-            EXPECT_EQ(presses, (std::vector<Press>{{letter, h.mod}}));
+            // Neither key has been released: the chord is still undecided.
+            EXPECT_EQ(get_mods(), 0);
+            EXPECT_TRUE(presses.empty());
             if (release_mod_first) {
-                release(key); release(other);
+                release(key);
+                EXPECT_EQ(presses, (std::vector<Press>{{h.tap, 0}, {letter, 0}}));
+                release(other);
+                EXPECT_EQ(presses, (std::vector<Press>{{h.tap, 0}, {letter, 0}}));
             } else {
-                release(other); release(key);
+                release(other);
+                EXPECT_EQ(get_mods(), h.mod);
+                EXPECT_EQ(presses, (std::vector<Press>{{letter, h.mod}}));
+                release(key);
+                EXPECT_EQ(presses, (std::vector<Press>{{letter, h.mod}}));
             }
-            EXPECT_EQ(presses, (std::vector<Press>{{letter, h.mod}}));
             expect_clear(); idle_for(600);
         }
     }
@@ -207,8 +230,10 @@ TEST_F(Model100Timeless, TwoSameHandHomeModsCanFormCommandShiftU) {
     press(d); press(f);
     EXPECT_EQ(get_speculative_mods(), MOD_BIT(KC_LGUI)); // ONE_KEY guard.
     press(u, 1);
+    EXPECT_TRUE(presses.empty());
+    release(u);
     EXPECT_EQ(presses, (std::vector<Press>{{KC_U, MOD_BIT(KC_LGUI) | MOD_BIT(KC_LSFT)}}));
-    release(u); release(f); release(d);
+    release(f); release(d);
     expect_clear();
 }
 

@@ -7,10 +7,10 @@
 #define FLOW_TAP_TERM 220
 #define QUICK_TAP_TERM_PER_KEY
 
-// Keep Getreuer's native QMK features, but settle opposite-hand chords on
-// keydown for all home-row modifiers instead of waiting for key release.
+// Getreuer's native QMK approach, with the source's balanced hold behavior:
+// opposite-hand nested taps hold, while rolled letter pairs remain taps.
 #define CHORDAL_HOLD
-#define HOLD_ON_OTHER_KEY_PRESS
+#define PERMISSIVE_HOLD
 #define SPECULATIVE_HOLD
 #define SPECULATIVE_HOLD_ONE_KEY
 // Reuse the source's typing interval for the speculation guard, too.

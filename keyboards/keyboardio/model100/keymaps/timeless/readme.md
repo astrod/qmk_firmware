@@ -5,25 +5,28 @@ The home-row timing and modifiers are in `config.h` and `timeless.c`.
 
 ## Home-row modifiers
 
-All eight home-row modifiers use `HOLD_ON_OTHER_KEY_PRESS` with Chordal Hold.
-When a home-row key is still undecided, pressing an opposite-hand key settles
-it as a modifier immediately. For example, holding D and pressing U sends
-Command+U on U's press, without waiting for its release. Releasing D first
-does not turn that chord back into letters.
-
-Chordal Hold still resolves same-hand letter pairs as taps within the tapping
-term. Opposite-hand letter presses that overlap can instead become shortcuts,
-especially at the start of typing or after a pause.
+All eight home-row modifiers use `PERMISSIVE_HOLD` with Chordal Hold, following
+Getreuer's guide and the source layout's balanced hold behavior. Within the
+tapping term, holding D and tapping U sends Command+U when U is released.
+Releasing D before U instead types `du`, protecting overlapping letter presses.
+Chordal Hold also resolves same-hand letter pairs as taps within the tapping
+term. Holding a key past the tapping term still selects its modifier.
 
 The tapping term remains 280 ms, Flow Tap 220 ms, and Quick Tap 175 ms on the
 left and 210 ms on the right. Flow Tap can still settle a home-row key as a
 letter during fast typing; pressing an opposite-hand key cannot undo that.
 Speculative Hold and its guards remain enabled. Key positions do not change.
 
-This branch includes a QMK tap-hold fix in `quantum/action_tapping.c`: queued
-key releases must not become the next pending tap-hold press. Without it,
-holding D, pressing F, releasing D, then pressing U can leave Command stuck.
-Keep this fix when updating QMK until upstream includes the same correction.
+This branch retains the QMK tap-hold fix in `quantum/action_tapping.c`: queued
+key releases must not become the next pending tap-hold press. With
+`HOLD_ON_OTHER_KEY_PRESS` enabled, holding D, pressing F, releasing D, then
+pressing U could leave Command stuck. Keep this fix when updating QMK until
+upstream includes the same correction. Its core regression test still runs
+with that option enabled, even though this keymap now uses Permissive Hold.
+The queue also retries an event once Chordal Hold clears the pending key. This
+keeps a new physical release from overtaking its queued press and leaving a
+letter held. Both fixes have regression tests; the input-sequence test also
+checks that every key and modifier clears after all physical keys are released.
 
 ## Layer controls
 
@@ -101,5 +104,5 @@ license is in `LICENSE.select-word`.
 
 ```sh
 qmk compile -kb keyboardio/model100 -km timeless
-qmk test-c -t model100_timeless -j 4
+qmk test-c -t model100_timeless -t 'tap_hold_configurations/chordal_hold/*' -j 4
 ```

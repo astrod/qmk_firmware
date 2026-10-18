@@ -181,11 +181,18 @@ void action_tapping_process(keyrecord_t record) {
     if (IS_EVENT(record.event) && waiting_buffer_head != waiting_buffer_tail) {
         ac_dprintf("---- action_exec: process waiting_buffer -----\n");
     }
-    for (; waiting_buffer_tail != waiting_buffer_head; waiting_buffer_tail = (waiting_buffer_tail + 1) % WAITING_BUFFER_SIZE) {
+    for (; waiting_buffer_tail != waiting_buffer_head;) {
         if (process_tapping(&waiting_buffer[waiting_buffer_tail])) {
             ac_dprintf("processed: waiting_buffer[%u] =", waiting_buffer_tail);
             debug_record(waiting_buffer[waiting_buffer_tail]);
             ac_dprintf("\n\n");
+            waiting_buffer_tail = (waiting_buffer_tail + 1) % WAITING_BUFFER_SIZE;
+#    ifdef CHORDAL_HOLD
+        } else if (IS_NOEVENT(tapping_key.event)) {
+            // Chordal Hold settled the prior key but left this event queued.
+            // Process it now, before a new physical release can overtake it.
+            continue;
+#    endif
         } else {
             break;
         }
