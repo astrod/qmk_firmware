@@ -137,12 +137,14 @@ TEST_F(Model100Timeless, QueuedSameHandLetterReleaseFollowsItsPress) {
     expect_clear();
 }
 
-TEST_F(Model100Timeless, AllEightHoldAt280msWithSourceModifiers) {
+TEST_F(Model100Timeless, ShiftHoldsAt195msAndOtherHomeModsAt240ms) {
     TestDriver driver; capture(driver);
     for (auto h : home) {
         auto key = KeymapKey(0, h.col, h.row, h.code);
         set_keymap({key}); presses.clear();
-        press(key, 270);
+        SCOPED_TRACE(h.code);
+        const unsigned term = (h.mod & MOD_MASK_SHIFT) ? 195 : 240;
+        press(key, term - 10);
         EXPECT_EQ(get_mods(), 0); // Not settled; only speculative so far.
         EXPECT_EQ(get_speculative_mods(), h.mod);
         idle_for(20);
@@ -237,24 +239,91 @@ TEST_F(Model100Timeless, TwoSameHandHomeModsCanFormCommandShiftU) {
     expect_clear();
 }
 
-TEST_F(Model100Timeless, FlowTapWithin220msStaysLetterEvenWhenHeld) {
+TEST_F(Model100Timeless, FlowTapUses100msForAltCommandAnd75msForCtrl) {
     TestDriver driver; capture(driver);
-    auto f = KeymapKey(0, 3, 2, HRM_F), u = KeymapKey(0, 4, 5, KC_U);
-    set_keymap({f, u});
-    tap_key(u); idle_for(210); press(f, 400);
-    EXPECT_EQ(get_mods(), 0); EXPECT_EQ(get_speculative_mods(), 0);
-    release(f);
-    EXPECT_EQ(presses, (std::vector<Press>{{KC_U, 0}, {KC_F, 0}}));
-    expect_clear();
+    for (auto h : home) {
+        if (h.mod & MOD_MASK_SHIFT) continue;
+        for (bool within_window : {true, false}) {
+            SCOPED_TRACE(h.code);
+            SCOPED_TRACE(within_window);
+            auto key = KeymapKey(DEF, h.col, h.row, h.code);
+            auto u = KeymapKey(DEF, 4, 5, KC_U);
+            set_keymap({key, u}); presses.clear();
+            const unsigned term = (h.mod & MOD_MASK_CTRL) ? 75 : 100;
+            tap_key(u); idle_for(within_window ? term - 5 : term + 5);
+            press(key, 1);
+            EXPECT_EQ(presses.size(), within_window ? 2u : 1u);
+            idle_for(300);
+            EXPECT_EQ(get_mods(), within_window ? 0 : h.mod);
+            release(key);
+            if (within_window) {
+                EXPECT_EQ(presses, (std::vector<Press>{{KC_U, 0}, {h.tap, 0}}));
+            } else {
+                EXPECT_EQ(presses, (std::vector<Press>{{KC_U, 0}}));
+            }
+            expect_clear(); idle_for(600);
+        }
+    }
 }
 
-TEST_F(Model100Timeless, After220msPauseOppositeHandShortcutWorks) {
+TEST_F(Model100Timeless, BothShiftsRemainAvailableDuringFastTyping) {
     TestDriver driver; capture(driver);
-    auto f = KeymapKey(0, 3, 2, HRM_F), u = KeymapKey(0, 4, 5, KC_U);
+    for (auto h : {home[3], home[4]}) {
+        auto key = KeymapKey(DEF, h.col, h.row, h.code);
+        auto other = h.row < 4 ? KeymapKey(DEF, 4, 5, KC_U) : KeymapKey(DEF, 5, 1, KC_W);
+        const uint8_t letter = h.row < 4 ? KC_U : KC_W;
+        set_keymap({key, other}); presses.clear();
+        tap_key(other); press(key); tap_key(other); release(key);
+        EXPECT_EQ(presses, (std::vector<Press>{{letter, 0}, {letter, h.mod}}));
+        expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, FlowTapAcceptsPreviousHomeRowLetterButNotSpacePunctuationOrDigits) {
+    TestDriver driver; capture(driver);
+    for (uint16_t prev_code : {uint16_t(HRM_F), uint16_t(KC_SPC), uint16_t(KC_COMM), uint16_t(KC_SCLN), uint16_t(KC_1)}) {
+        SCOPED_TRACE(prev_code);
+        auto prior = KeymapKey(DEF, 3, 2, prev_code), d = KeymapKey(DEF, 4, 2, HRM_D);
+        set_keymap({prior, d}); presses.clear();
+        tap_key(prior); press(d, 300);
+        const bool flow = prev_code == HRM_F;
+        EXPECT_EQ(get_mods(), flow ? 0 : MOD_BIT(KC_LGUI));
+        EXPECT_EQ(presses.size(), flow ? 2u : 1u);
+        if (flow) EXPECT_EQ(presses.back(), (Press{KC_D, 0}));
+        release(d); expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, FlowTapSkipsHotkeysButAllowsHeldShift) {
+    TestDriver driver; capture(driver);
+    for (uint16_t mod_code : {KC_LCTL, KC_RCTL, KC_LGUI, KC_RGUI, KC_LALT, KC_LSFT}) {
+        SCOPED_TRACE(mod_code);
+        auto mod = KeymapKey(DEF, 0, 3, mod_code);
+        auto u = KeymapKey(DEF, 4, 5, KC_U), s = KeymapKey(DEF, 5, 2, HRM_S);
+        set_keymap({mod, u, s}); presses.clear();
+        press(mod); tap_key(u); press(s); tap_key(u); release(s); release(mod);
+        const uint8_t held = MOD_BIT(mod_code);
+        if (mod_code == KC_LSFT) {
+            EXPECT_EQ(presses, (std::vector<Press>{{KC_U, held}, {KC_S, held}, {KC_U, held}}));
+        } else {
+            EXPECT_EQ(presses, (std::vector<Press>{{KC_U, held}, {KC_U, held | MOD_BIT(KC_LALT)}}));
+        }
+        expect_clear(); idle_for(600);
+    }
+}
+
+TEST_F(Model100Timeless, SpeculativeHoldUsesSeparate200msTypingGuard) {
+    TestDriver driver; capture(driver);
+    auto f = KeymapKey(DEF, 3, 2, HRM_F), u = KeymapKey(DEF, 4, 5, KC_U);
     set_keymap({f, u});
-    tap_key(u); idle_for(230); press(f); tap_key(u); release(f);
-    EXPECT_EQ(presses, (std::vector<Press>{{KC_U, 0}, {KC_U, MOD_BIT(KC_LSFT)}}));
-    expect_clear();
+    for (unsigned pause : {190u, 210u}) {
+        presses.clear(); tap_key(u); idle_for(pause); press(f);
+        EXPECT_EQ(get_mods(), 0);
+        EXPECT_EQ(get_speculative_mods(), pause < 200 ? 0 : MOD_BIT(KC_LSFT));
+        release(f);
+        EXPECT_EQ(presses, (std::vector<Press>{{KC_U, 0}, {KC_F, 0}}));
+        expect_clear(); idle_for(600);
+    }
 }
 
 TEST_F(Model100Timeless, SameHandThumbAllowsShiftBackspace) {
@@ -288,11 +357,21 @@ TEST_F(Model100Timeless, QuickTapUsesDifferentLeftAndRightWindows) {
             EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL) | h.mod); // Past 175 ms.
             EXPECT_EQ(presses.size(), 1u);
         } else {
-            EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL)); // Still within 210 ms.
+            EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL)); // Within J's effective 195 ms.
             EXPECT_EQ(presses, (std::vector<Press>{{KC_J, MOD_BIT(KC_LCTL)}, {KC_J, MOD_BIT(KC_LCTL)}}));
         }
         release(key); release(ctrl); expect_clear(); idle_for(600);
     }
+}
+
+TEST_F(Model100Timeless, RightShiftQuickTapIsLimitedByIts195msTappingTerm) {
+    TestDriver driver; capture(driver);
+    auto j = KeymapKey(DEF, 4, 6, HRM_J), ctrl = KeymapKey(DEF, 0, 3, KC_LCTL);
+    set_keymap({j, ctrl});
+    press(ctrl); tap_key(j, 10); idle_for(200); press(j, 300);
+    EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL) | MOD_BIT(KC_RSFT));
+    EXPECT_EQ(presses, (std::vector<Press>{{KC_J, MOD_BIT(KC_LCTL)}}));
+    release(j); release(ctrl); expect_clear();
 }
 
 TEST_F(Model100Timeless, MatrixSidesAndThumbExceptions) {

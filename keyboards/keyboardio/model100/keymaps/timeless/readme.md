@@ -12,10 +12,28 @@ Releasing D before U instead types `du`, protecting overlapping letter presses.
 Chordal Hold also resolves same-hand letter pairs as taps within the tapping
 term. Holding a key past the tapping term still selects its modifier.
 
-The tapping term remains 280 ms, Flow Tap 220 ms, and Quick Tap 175 ms on the
-left and 210 ms on the right. Flow Tap can still settle a home-row key as a
-letter during fast typing; pressing an opposite-hand key cannot undo that.
-Speculative Hold and its guards remain enabled. Key positions do not change.
+The tapping and Flow Tap settings follow [Getreuer's personal keymap](https://github.com/getreuer/qmk-keymap/blob/f830174ba88dae5f649f16950f3a139021c9a5ca/getreuer.c)
+and [config](https://github.com/getreuer/qmk-keymap/blob/f830174ba88dae5f649f16950f3a139021c9a5ca/config_getreuer.h),
+mapped by modifier role onto this QWERTY layout:
+
+| Keys | Modifier | Tapping term | Flow Tap |
+| --- | --- | --- | --- |
+| A / ; | Ctrl | 240 ms | 75 ms |
+| S / L | Alt | 240 ms | 100 ms |
+| D / K | Command | 240 ms | 100 ms |
+| F / J | Shift | 195 ms | Off |
+
+Flow Tap applies after a letter, including the letter part of a tapped home-row
+key. It does not apply after Space, punctuation or a number, or while Ctrl,
+Command or left Alt is active. Within its window, it sends the letter right
+away even if the key stays held. Shift still uses Permissive Hold and Chordal
+Hold, but has no Flow Tap protection, just as in Getreuer's keymap.
+
+Speculative Hold uses Getreuer's separate 200 ms typing guard and allows only
+one speculative modifier. Quick Tap keeps the requested 175 ms on the left and
+210 ms on the right; QMK limits J's effective window to its shorter 195 ms
+tapping term. These Quick Tap values remain a user preference, not Getreuer's
+personal values. Key positions and selection-repeat timing do not change.
 
 This branch retains the QMK tap-hold fix in `quantum/action_tapping.c`: queued
 key releases must not become the next pending tap-hold press. With

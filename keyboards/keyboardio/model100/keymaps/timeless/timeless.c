@@ -16,8 +16,38 @@ const char chordal_hold_layout[MATRIX_ROWS][MATRIX_COLS] PROGMEM = {
     {'R', 'R', 'R', 'R', 'R', 'R', '*', '*'},
 };
 
+// Getreuer's shorter Shift term, mapped onto this QWERTY layout.
+uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case HRM_F:
+        case HRM_J:
+            return TAPPING_TERM - 45;
+        default:
+            return TAPPING_TERM;
+    }
+}
+
+// Match getreuer/qmk-keymap's Flow Tap policy by modifier role, rather than
+// copying its Magic Sturdy letter positions. Shift has no Flow Tap.
+uint16_t get_flow_tap_term(uint16_t keycode, keyrecord_t *record, uint16_t prev_keycode) {
+    if (get_tap_keycode(prev_keycode) <= KC_Z && (get_mods() & (MOD_MASK_CG | MOD_BIT_LALT)) == 0) {
+        switch (keycode) {
+            case HRM_S:
+            case HRM_D:
+            case HRM_K:
+            case HRM_L:
+                return FLOW_TAP_TERM;
+            case HRM_A:
+            case HRM_SCLN:
+                return FLOW_TAP_TERM - 25;
+        }
+    }
+    return 0;
+}
+
 // QMK measures Quick Tap from release to next press, whereas ZMK measures
 // press to press. Preserve the requested numbers, using QMK's native timing.
+// QMK also limits Quick Tap to the key's tapping term: J now has 195 ms.
 uint16_t get_quick_tap_term(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case HRM_A:
@@ -52,9 +82,6 @@ bool get_speculative_hold(uint16_t keycode, keyrecord_t *record) {
             return false;
     }
 }
-
-// Keep native QMK Flow Tap eligibility: letters, selected punctuation, space;
-// Ctrl/GUI/left-Alt shortcuts are exempt. No TailorKey recovery layers are used.
 
 static bool is_digit(uint16_t keycode) {
     return (keycode >= KC_1 && keycode <= KC_0) || (keycode >= KC_P1 && keycode <= KC_P0);
