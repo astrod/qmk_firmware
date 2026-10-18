@@ -621,6 +621,16 @@ bool process_tapping(keyrecord_t *keyp) {
                         debug_tapping_key();
                         return true;
                     }
+#    ifdef FLOW_TAP_TERM
+                    // An intervening key cancels Quick Tap but can still
+                    // qualify this press for Flow Tap, just as for a different
+                    // tap-hold key. Preserve uninterrupted tap-then-hold.
+                    if (tapping_key.tap.interrupted && flow_tap_key_if_within_term(keyp, flow_tap_prev_time)) {
+                        tapping_key = (keyrecord_t){0};
+                        debug_tapping_key();
+                        return true;
+                    }
+#    endif // FLOW_TAP_TERM
                     // FIX: start new tap again
                     tapping_key = *keyp;
                     return true;

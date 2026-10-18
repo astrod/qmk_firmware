@@ -10,30 +10,33 @@ Getreuer's guide and the source layout's balanced hold behavior. Within the
 tapping term, holding D and tapping U sends Command+U when U is released.
 Releasing D before U instead types `du`, protecting overlapping letter presses.
 Chordal Hold also resolves same-hand letter pairs as taps within the tapping
-term. Holding a key past the tapping term still selects its modifier.
+term. Outside Flow Tap, holding a key past the tapping term selects its modifier.
 
-The tapping and Flow Tap settings follow [Getreuer's personal keymap](https://github.com/getreuer/qmk-keymap/blob/f830174ba88dae5f649f16950f3a139021c9a5ca/getreuer.c)
-and [config](https://github.com/getreuer/qmk-keymap/blob/f830174ba88dae5f649f16950f3a139021c9a5ca/config_getreuer.h),
-mapped by modifier role onto this QWERTY layout:
+The native tap-hold features follow [Getreuer's approach](https://github.com/getreuer/qmk-keymap/blob/f830174ba88dae5f649f16950f3a139021c9a5ca/config_getreuer.h).
+The user's original 280 ms tapping term and 220 ms Flow Tap window apply to
+all eight home-row keys, including both Shift keys:
 
 | Keys | Modifier | Tapping term | Flow Tap |
 | --- | --- | --- | --- |
-| A / ; | Ctrl | 240 ms | 75 ms |
-| S / L | Alt | 240 ms | 100 ms |
-| D / K | Command | 240 ms | 100 ms |
-| F / J | Shift | 195 ms | Off |
+| A / ; | Ctrl | 280 ms | 220 ms |
+| S / L | Alt | 280 ms | 220 ms |
+| D / K | Command | 280 ms | 220 ms |
+| F / J | Shift | 280 ms | 220 ms |
 
-Flow Tap applies after a letter, including the letter part of a tapped home-row
-key. It does not apply after Space, punctuation or a number, or while Ctrl,
-Command or left Alt is active. Within its window, it sends the letter right
-away even if the key stays held. Shift still uses Permissive Hold and Chordal
-Hold, but has no Flow Tap protection, just as in Getreuer's keymap.
+Native QMK Flow Tap applies after a letter (including a tapped home-row key),
+Space, comma, period, semicolon or slash. It does not apply after a number or
+while Ctrl, Command or left Alt is active. Within its window, it sends the
+letter right away even if the key stays held. Outside that window, Permissive
+Hold and Chordal Hold still decide taps and holds.
+
+A wider Flow Tap window protects overlapping letters, but can also turn an
+intended home-row modifier into a letter soon after typing. Fn+ASDF supplies
+plain Ctrl, Alt, Command and Shift for shortcuts during that window.
 
 Speculative Hold uses Getreuer's separate 200 ms typing guard and allows only
 one speculative modifier. Quick Tap keeps the requested 175 ms on the left and
-210 ms on the right; QMK limits J's effective window to its shorter 195 ms
-tapping term. These Quick Tap values remain a user preference, not Getreuer's
-personal values. Key positions and selection-repeat timing do not change.
+210 ms on the right. These values differ from Getreuer's personal values.
+Key positions and selection-repeat timing do not change.
 
 This branch retains the QMK tap-hold fix in `quantum/action_tapping.c`: queued
 key releases must not become the next pending tap-hold press. With
@@ -45,6 +48,16 @@ The queue also retries an event once Chordal Hold clears the pending key. This
 keeps a new physical release from overtaking its queued press and leaving a
 letter held. Both fixes have regression tests; the input-sequence test also
 checks that every key and modifier clears after all physical keys are released.
+
+A third fix checks Flow Tap when a released tap-hold key is pressed again
+after an intervening key. Previously, `F M F` could skip Flow Tap on the last F
+while the first tap was still within its tapping term. Tapping Space before
+releasing that final F then sent Shift+Space instead of F followed by Space.
+In Dubeolsik, that can turn `를` into `르`. The fix keeps Quick Tap's existing
+behavior when no other key intervenes and still respects Flow Tap eligibility
+and its time limit. Native QMK and Model 100 tests cover this case, its release
+orders and shortcuts where Flow Tap must stay off. The Korean tests check the
+HID key sequences for 을/를/들; they do not run the host's Korean input method.
 
 ## Layer controls
 
@@ -122,5 +135,7 @@ license is in `LICENSE.select-word`.
 
 ```sh
 qmk compile -kb keyboardio/model100 -km timeless
-qmk test-c -t model100_timeless -t 'tap_hold_configurations/chordal_hold/*' -j 4
+qmk test-c -t model100_timeless -t 'tap_hold_configurations/chordal_hold/*' \
+  -t tap_hold_configurations/flow_tap -t tap_hold_configurations/quick_tap \
+  -t tap_hold_configurations/speculative_hold/flow_tap -j 4
 ```

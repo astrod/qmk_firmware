@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
-// Getreuer's personal timing, mapped by modifier role in timeless.c.
-#define TAPPING_TERM 240
-#define TAPPING_TERM_PER_KEY
-#define FLOW_TAP_TERM 100
+// Restore the user's tapping term and typing protection for all home-row keys.
+#define TAPPING_TERM 280
+#define FLOW_TAP_TERM 220
 #define QUICK_TAP_TERM_PER_KEY
 
 // Getreuer's native QMK approach, with the source's balanced hold behavior:

@@ -641,6 +641,129 @@ TEST_F(FlowTapTest, quick_tap) {
     VERIFY_AND_CLEAR(driver);
 }
 
+TEST_F(FlowTapTest, retap_after_regular_key_uses_flow_tap) {
+    TestDriver driver;
+    InSequence s;
+    auto mod_tap = KeymapKey(0, 1, 0, SFT_T(KC_F));
+    auto regular = KeymapKey(0, 2, 0, KC_M);
+    auto space   = KeymapKey(0, 3, 0, KC_SPC);
+    set_keymap({mod_tap, regular, space});
+
+    EXPECT_REPORT(driver, (KC_F));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(mod_tap, 30);
+    EXPECT_REPORT(driver, (KC_M));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(regular, 30);
+    idle_for(100);
+    VERIFY_AND_CLEAR(driver);
+
+    // The prior tap has settled; M interrupted Quick Tap but should still
+    // allow Flow Tap. The second F must be a letter at keydown.
+    EXPECT_REPORT(driver, (KC_F));
+    mod_tap.press();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_REPORT(driver, (KC_F, KC_SPC));
+    EXPECT_REPORT(driver, (KC_F));
+    tap_key(space, 10);
+    EXPECT_NO_REPORT(driver);
+    idle_for(TAPPING_TERM + 1);
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_EMPTY_REPORT(driver);
+    mod_tap.release();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(FlowTapTest, retap_after_ineligible_key_still_holds) {
+    TestDriver driver;
+    InSequence s;
+    auto mod_tap = KeymapKey(0, 1, 0, SFT_T(KC_F));
+    auto digit   = KeymapKey(0, 2, 0, KC_1);
+    set_keymap({mod_tap, digit});
+
+    EXPECT_REPORT(driver, (KC_F));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(mod_tap, 30);
+    EXPECT_REPORT(driver, (KC_1));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(digit, 30);
+    idle_for(100);
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_NO_REPORT(driver);
+    mod_tap.press();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+    EXPECT_REPORT(driver, (KC_LSFT));
+    idle_for(TAPPING_TERM + 1);
+    EXPECT_EMPTY_REPORT(driver);
+    mod_tap.release();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(FlowTapTest, layer_tap_retap_after_regular_key_uses_flow_tap) {
+    TestDriver driver;
+    InSequence s;
+    auto layer_tap = KeymapKey(0, 1, 0, LT(1, KC_F));
+    auto regular   = KeymapKey(0, 2, 0, KC_M);
+    set_keymap({layer_tap, regular});
+
+    EXPECT_REPORT(driver, (KC_F));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(layer_tap, 30);
+    EXPECT_REPORT(driver, (KC_M));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(regular, 30);
+    idle_for(100);
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_REPORT(driver, (KC_F));
+    layer_tap.press();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+    EXPECT_NO_REPORT(driver);
+    idle_for(TAPPING_TERM + 1);
+    EXPECT_FALSE(layer_state_is(1));
+    VERIFY_AND_CLEAR(driver);
+    EXPECT_EMPTY_REPORT(driver);
+    layer_tap.release();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(FlowTapTest, retap_after_flow_timeout_still_holds) {
+    TestDriver driver;
+    InSequence s;
+    auto mod_tap = KeymapKey(0, 1, 0, SFT_T(KC_F));
+    auto regular = KeymapKey(0, 2, 0, KC_M);
+    set_keymap({mod_tap, regular});
+
+    EXPECT_REPORT(driver, (KC_F));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(mod_tap);
+    EXPECT_REPORT(driver, (KC_M));
+    EXPECT_EMPTY_REPORT(driver);
+    tap_key(regular);
+    idle_for(FLOW_TAP_TERM + 1);
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_NO_REPORT(driver);
+    mod_tap.press();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+    EXPECT_REPORT(driver, (KC_LSFT));
+    idle_for(TAPPING_TERM + 1);
+    EXPECT_EMPTY_REPORT(driver);
+    mod_tap.release();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+}
+
 TEST_F(FlowTapTest, rolling_mt_mt) {
     TestDriver driver;
     InSequence s;
