@@ -411,7 +411,7 @@ TEST_F(Model100Timeless, LongHoldThenSameHandKeyDoesNotReplayF) {
     expect_clear();
 }
 
-TEST_F(Model100Timeless, QuickTapUsesDifferentLeftAndRightWindows) {
+TEST_F(Model100Timeless, QuickTapUsesSameLeftAndRightWindow) {
     TestDriver driver; capture(driver);
     // A physical Ctrl disables Flow Tap so the Quick Tap windows can be tested.
     auto ctrl = KeymapKey(0, 0, 0, KC_LCTL);
@@ -420,26 +420,21 @@ TEST_F(Model100Timeless, QuickTapUsesDifferentLeftAndRightWindows) {
         set_keymap({ctrl, key}); presses.clear();
         press(ctrl); tap_key(key, 10); idle_for(190);
         press(key, 300);
-        if (h.code == HRM_F) {
-            EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL) | h.mod); // Past 175 ms.
-            EXPECT_EQ(presses.size(), 1u);
-        } else {
-            EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL)); // Still within 210 ms.
-            EXPECT_EQ(presses, (std::vector<Press>{{KC_J, MOD_BIT(KC_LCTL)}, {KC_J, MOD_BIT(KC_LCTL)}}));
-        }
+        EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL) | h.mod); // Past 175 ms on either hand.
+        EXPECT_EQ(presses, (std::vector<Press>{{h.tap, MOD_BIT(KC_LCTL)}}));
         release(key); release(ctrl); expect_clear(); idle_for(600);
     }
 }
 
-TEST_F(Model100Timeless, RightShiftQuickTapUsesFull210msWindow) {
+TEST_F(Model100Timeless, RightShiftQuickTapUses175msWindow) {
     TestDriver driver; capture(driver);
     auto j = KeymapKey(DEF, 4, 6, HRM_J), ctrl = KeymapKey(DEF, 0, 3, KC_LCTL);
     set_keymap({j, ctrl});
-    for (unsigned pause : {200u, 220u}) {
+    for (unsigned pause : {165u, 185u}) {
         SCOPED_TRACE(pause);
         presses.clear();
         press(ctrl); tap_key(j, 10); idle_for(pause); press(j, 300);
-        if (pause < 210) {
+        if (pause < 175) {
             EXPECT_EQ(get_mods(), MOD_BIT(KC_LCTL));
             EXPECT_EQ(presses, (std::vector<Press>{{KC_J, MOD_BIT(KC_LCTL)}, {KC_J, MOD_BIT(KC_LCTL)}}));
         } else {

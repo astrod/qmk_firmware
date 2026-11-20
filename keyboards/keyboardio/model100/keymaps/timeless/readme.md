@@ -34,8 +34,8 @@ intended home-row modifier into a letter soon after typing. Fn+ASDF supplies
 plain Ctrl, Alt, Command and Shift for shortcuts during that window.
 
 Speculative Hold uses Getreuer's separate 200 ms typing guard and allows only
-one speculative modifier. Quick Tap keeps the requested 175 ms on the left and
-210 ms on the right. These values differ from Getreuer's personal values.
+one speculative modifier. Quick Tap uses 175 ms for both hands.
+These values differ from Getreuer's personal values.
 Key positions and selection-repeat timing do not change.
 
 This branch retains the QMK tap-hold fix in `quantum/action_tapping.c`: queued

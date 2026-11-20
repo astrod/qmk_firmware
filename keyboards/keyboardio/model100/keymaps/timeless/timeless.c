@@ -22,19 +22,18 @@ const char chordal_hold_layout[MATRIX_ROWS][MATRIX_COLS] PROGMEM = {
 // when a following key, such as Space, is tapped before F is released.
 
 // QMK measures Quick Tap from release to next press, whereas ZMK measures
-// press to press. Preserve the requested numbers, using QMK's native timing.
+// press to press. Use 175 ms for both hands with QMK's native timing.
 uint16_t get_quick_tap_term(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case HRM_A:
         case HRM_S:
         case HRM_D:
         case HRM_F:
-            return 175;
         case HRM_J:
         case HRM_K:
         case HRM_L:
         case HRM_SCLN:
-            return 210;
+            return 175;
         default:
             return QUICK_TAP_TERM;
     }
