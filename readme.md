@@ -1,4 +1,15 @@
-# Quantum Mechanical Keyboard Firmware
+# Keyboardio Model 100 — timeless (QMK)
+
+This fork preserves the personal Model 100 setup on the `model100-timeless`
+branch. See the [timeless keymap guide](keyboards/keyboardio/model100/keymaps/timeless/readme.md)
+for the layout, layers, timing settings, and build commands.
+
+Model 100 support comes from Daniel Shields's [QMK PR #26397](https://github.com/qmk/qmk_firmware/pull/26397),
+at commit `2c745388201b633ba04036b17157669632d1740a`. As of November 20, 2026,
+that PR is open and Model 100 is not included in upstream `master`.
+This branch includes the port, the personal keymap, and local tap-hold fixes.
+
+## QMK Firmware
 
 [![Current Version](https://img.shields.io/github/tag/qmk/qmk_firmware.svg)](https://github.com/qmk/qmk_firmware/tags)
 [![Discord](https://img.shields.io/discord/440868230475677696.svg)](https://discord.gg/qmk)

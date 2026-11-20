@@ -3,6 +3,22 @@
 The base layout uses QWERTY, native Chordal Hold, Flow Tap and Speculative Hold.
 The home-row timing and modifiers are in `config.h` and `timeless.c`.
 
+## Branch and status
+
+Use the `model100-timeless` branch of `astrod/qmk_firmware` for this setup.
+The keyboard port comes from Daniel Shields's [QMK PR #26397](https://github.com/qmk/qmk_firmware/pull/26397),
+commit `2c745388201b633ba04036b17157669632d1740a`. The PR is still open as of
+November 20, 2026. The branch retains the personal keymap history and the
+`quantum/action_tapping.c` fixes described below; copying only the keymap into
+another QMK checkout does not include those fixes.
+
+The current settings use a 280 ms tapping term, a 220 ms Flow Tap window,
+175 ms Quick Tap on both hands, and Speculative Hold with a 200 ms typing guard.
+Intermittent missing and reordered letters have been observed during typing,
+including missing letters in English input. The cause has not been confirmed.
+The tests below check firmware HID reports, not the host input method or actual
+typing on the keyboard.
+
 ## Home-row modifiers
 
 All eight home-row modifiers use `PERMISSIVE_HOLD` with Chordal Hold, following
@@ -133,9 +149,26 @@ license is in `LICENSE.select-word`.
 
 ## Build and test
 
+After setting up the [QMK build tools](https://docs.qmk.fm/newbs_getting_started),
+clone this branch with its submodules:
+
+```sh
+git clone --recurse-submodules --branch model100-timeless https://github.com/astrod/qmk_firmware.git
+cd qmk_firmware
+```
+
 ```sh
 qmk compile -kb keyboardio/model100 -km timeless
 qmk test-c -t model100_timeless -t 'tap_hold_configurations/chordal_hold/*' \
   -t tap_hold_configurations/flow_tap -t tap_hold_configurations/quick_tap \
   -t tap_hold_configurations/speculative_hold/flow_tap -j 4
 ```
+
+To install the firmware, run:
+
+```sh
+qmk flash -kb keyboardio/model100 -km timeless
+```
+
+When prompted, hold the keyboard's Prog key while reconnecting USB to enter
+the bootloader. See the [Model 100 guide](../../readme.md) for DFU details.
